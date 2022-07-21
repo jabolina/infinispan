@@ -20,6 +20,8 @@ import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHash;
 import org.infinispan.client.hotrod.impl.iteration.KeyTracker;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
+import org.infinispan.client.hotrod.impl.protocol.Codec31;
+import org.infinispan.client.hotrod.impl.protocol.Codec40;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
 import org.infinispan.client.hotrod.impl.query.RemoteQuery;
 import org.infinispan.client.hotrod.impl.transaction.entry.Modification;
@@ -56,6 +58,8 @@ public class OperationsFactory implements HotRodConstants {
 
    private Codec codec;
 
+   private final Codec safePingVersionCodec;
+
    private final ClientListenerNotifier listenerNotifier;
 
    private final String cacheName;
@@ -76,6 +80,10 @@ public class OperationsFactory implements HotRodConstants {
             : new AtomicInteger(-1);
       this.forceReturnValue = forceReturnValue;
       this.codec = codec;
+
+      // in order to support the handshake with 3.x clients
+      this.safePingVersionCodec = (codec instanceof Codec40) ? new Codec31() : codec;
+
       this.listenerNotifier = listenerNotifier;
       this.cfg = cfg;
       this.clientStatistics = clientStatistics;
@@ -245,7 +253,7 @@ public class OperationsFactory implements HotRodConstants {
     * @param releaseChannel
     */
    public PingOperation newPingOperation(boolean releaseChannel) {
-      return new PingOperation(codec, topologyId, cfg, cacheNameBytes, channelFactory, releaseChannel, this);
+      return new PingOperation(safePingVersionCodec, topologyId, cfg, cacheNameBytes, channelFactory, releaseChannel, this);
    }
 
    /**
@@ -257,7 +265,7 @@ public class OperationsFactory implements HotRodConstants {
     */
    public FaultTolerantPingOperation newFaultTolerantPingOperation() {
       return new FaultTolerantPingOperation(
-            codec, channelFactory, cacheNameBytes, topologyId, flags(), cfg, this);
+            safePingVersionCodec, channelFactory, cacheNameBytes, topologyId, flags(), cfg, this);
    }
 
    public QueryOperation newQueryOperation(RemoteQuery<?> remoteQuery, DataFormat dataFormat) {
