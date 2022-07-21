@@ -58,7 +58,7 @@ public class OperationsFactory implements HotRodConstants {
 
    private Codec codec;
 
-   private final Codec safePingVersionCodec;
+   private Codec safePingVersionCodec;
 
    private final ClientListenerNotifier listenerNotifier;
 
@@ -121,6 +121,7 @@ public class OperationsFactory implements HotRodConstants {
 
    public void setCodec(Codec codec) {
       this.codec = codec;
+      this.safePingVersionCodec = codec;
    }
 
    public <V> GetOperation<V> newGetKeyOperation(Object key, byte[] keyBytes, DataFormat dataFormat) {
