@@ -497,10 +497,7 @@ public class ScatteredDistributionInterceptor extends ClusteringInterceptor {
             || (oldMetadata instanceof RemoteMetadata && comparisonResult == InequalVersionComparisonResult.EQUAL))
          return true;
 
-      if (oldPrivate == null || newPrivate == null || oldPrivate.entryVersion() == null || newPrivate.entryVersion() == null)
-         return false;
-
-      if (oldPrivate.isPreloaded() != newPrivate.isPreloaded())
+      if (oldPrivate == null || newPrivate == null || oldPrivate.isPreloaded() != newPrivate.isPreloaded())
          return false;
 
       comparisonResult = oldPrivate.entryVersion().compareTo(newPrivate.entryVersion());

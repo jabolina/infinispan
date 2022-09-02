@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
 @Test(groups = "functional", testName = "distribution.DistStorePreloadTest")
 public class DistStorePreloadTest<D extends DistStorePreloadTest<?>> extends BaseDistStoreTest<String, String, D> {
 
-   public static final int NUM_KEYS = 5;
+   public static final int NUM_KEYS = 10;
 
    public DistStorePreloadTest() {
       INIT_CLUSTER_SIZE = 1;
@@ -101,7 +101,6 @@ public class DistStorePreloadTest<D extends DistStorePreloadTest<?>> extends Bas
 
       PreloadManager c2Preload = TestingUtil.extractComponent(c2, PreloadManager.class);
       assertTrue(c2Preload.isFullyPreloaded());
-      System.out.println("CALLING AGAIN!!");
       CompletableFutures.<Void>await(c2Preload.preload().toCompletableFuture());
 
       assertTrue(c2Preload.isFullyPreloaded());
