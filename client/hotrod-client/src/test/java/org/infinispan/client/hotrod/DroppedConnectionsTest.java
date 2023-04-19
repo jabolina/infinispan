@@ -5,6 +5,7 @@ import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNotSame;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 
 import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
 import org.infinispan.client.hotrod.impl.transport.netty.ChannelFactory;
@@ -65,7 +66,7 @@ public class DroppedConnectionsTest extends SingleCacheManagerTest {
          assertEquals(0, channelFactory.getNumActive(address));
          assertEquals(1, channelFactory.getNumIdle(address));
 
-         Channel channel = channelFactory.fetchChannelAndInvoke(address, new NoopChannelOperation()).join();
+         Channel channel = channelFactory.fetchChannelAndInvoke(address, rc.getName().getBytes(StandardCharsets.UTF_8), new NoopChannelOperation()).join();
          channelFactory.releaseChannel(channel);//now we have a reference to the single connection in pool
 
          channel.close().sync();
@@ -75,7 +76,7 @@ public class DroppedConnectionsTest extends SingleCacheManagerTest {
          assertEquals(0, channelFactory.getNumActive(address));
          assertEquals(1, channelFactory.getNumIdle(address));
 
-         Channel channel2 = channelFactory.fetchChannelAndInvoke(address, new NoopChannelOperation()).join();
+         Channel channel2 = channelFactory.fetchChannelAndInvoke(address, rc.getName().getBytes(StandardCharsets.UTF_8), new NoopChannelOperation()).join();
 
          assertNotSame(channel.id(), channel2.id());
       } finally {

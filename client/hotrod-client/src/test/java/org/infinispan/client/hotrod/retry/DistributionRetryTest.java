@@ -15,11 +15,13 @@ import org.infinispan.affinity.KeyAffinityServiceFactory;
 import org.infinispan.affinity.KeyGenerator;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.VersionedValue;
+import org.infinispan.client.hotrod.exceptions.TransportException;
 import org.infinispan.client.hotrod.impl.transport.netty.ChannelFactory;
 import org.infinispan.client.hotrod.test.InternalRemoteCacheManager;
 import org.infinispan.client.hotrod.test.NoopChannelOperation;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.ProtoStreamMarshaller;
+import org.infinispan.commons.test.Exceptions;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.remoting.transport.Address;
@@ -34,6 +36,8 @@ import io.netty.channel.Channel;
 @Test(testName = "client.hotrod.retry.DistributionRetryTest", groups = "functional")
 public class DistributionRetryTest extends AbstractRetryTest {
 
+   private int retries;
+
    @Override
    protected ConfigurationBuilder getCacheConfig() {
       ConfigurationBuilder builder = hotRodCacheConfiguration(
@@ -42,9 +46,21 @@ public class DistributionRetryTest extends AbstractRetryTest {
       return builder;
    }
 
+   @Override
+   protected void amendRemoteCacheManagerConfiguration(org.infinispan.client.hotrod.configuration.ConfigurationBuilder builder) {
+      builder.maxRetries(retries)
+            .socketTimeout(1000)
+            .connectionTimeout(1000);
+   }
+
    public void testGet() throws Exception {
       log.info("Starting actual test");
       Object key = generateKeyAndShutdownServer();
+
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.get(key));
+      }
+
       //now make sure that next call won't fail
       resetStats();
       assertEquals(remoteCache.get(key), "v");
@@ -53,22 +69,34 @@ public class DistributionRetryTest extends AbstractRetryTest {
    public void testPut() throws Exception {
       Object key = generateKeyAndShutdownServer();
       log.info("Here it starts");
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.put(key, "v0"));
+      }
       assertEquals(remoteCache.put(key, "v0"), "v");
    }
 
    public void testRemove() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.remove(key));
+      }
       assertEquals("v", remoteCache.remove(key));
    }
 
    public void testContains() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.containsKey(key));
+      }
       resetStats();
       assertEquals(true, remoteCache.containsKey(key));
    }
 
    public void testGetWithMetadata() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.getWithMetadata(key));
+      }
       resetStats();
       VersionedValue value = remoteCache.getWithMetadata(key);
       assertEquals("v", value.getValue());
@@ -76,28 +104,43 @@ public class DistributionRetryTest extends AbstractRetryTest {
 
    public void testPutIfAbsent() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.putIfAbsent(key, "v0"));
+      }
       assertEquals(null, remoteCache.putIfAbsent("noSuchKey", "someValue"));
       assertEquals("someValue", remoteCache.get("noSuchKey"));
    }
 
    public void testReplace() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.replace(key, "v1"));
+      }
       assertEquals("v", remoteCache.replace(key, "v2"));
    }
 
    public void testReplaceIfUnmodified() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.replaceWithVersion(key, "v1", 10));
+      }
       assertEquals(false, remoteCache.replaceWithVersion(key, "v2", 12));
    }
 
    public void testRemoveIfUnmodified() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.removeWithVersion(key, 10));
+      }
       resetStats();
       assertEquals(false, remoteCache.removeWithVersion(key, 12));
    }
 
    public void testClear() throws Exception {
       Object key = generateKeyAndShutdownServer();
+      if (retries == 0) {
+         Exceptions.expectException(TransportException.class, ".*", () -> remoteCache.clear());
+      }
       resetStats();
       remoteCache.clear();
       assertEquals(false, remoteCache.containsKey(key));
@@ -126,10 +169,8 @@ public class DistributionRetryTest extends AbstractRetryTest {
          channelFactory.releaseChannel(channel);
       }
 
-
       log.info("About to stop Hot Rod server 2");
       hotRodServer2.stop();
-
 
       return key;
    }
@@ -155,4 +196,26 @@ public class DistributionRetryTest extends AbstractRetryTest {
       }
    }
 
+   public DistributionRetryTest withRetries(int retries) {
+      this.retries = retries;
+      return this;
+   }
+
+   @Override
+   public Object[] factory() {
+      return new Object[] {
+            new DistributionRetryTest().withRetries(0),
+            new DistributionRetryTest().withRetries(2),
+      };
+   }
+
+   @Override
+   protected String parameters() {
+      return "[retries=" + retries + "]";
+   }
+
+   @Override
+   protected String[] parameterNames() {
+      return new String[] { "retries" };
+   }
 }

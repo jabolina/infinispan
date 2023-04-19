@@ -63,7 +63,7 @@ public class AddListenerOperation extends BaseCounterOperation<Boolean> {
       if (server == null) {
          super.fetchChannelAndInvoke(retryCount, failedServers);
       } else {
-         channelFactory.fetchChannelAndInvoke(server, this);
+         channelFactory.fetchChannelAndInvoke(server, cacheName(), this);
       }
    }
 

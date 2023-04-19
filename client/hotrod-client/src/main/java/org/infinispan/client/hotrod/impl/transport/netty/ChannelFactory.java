@@ -183,6 +183,10 @@ public class ChannelFactory {
       return marshallerRegistry;
    }
 
+   public synchronized void serverFailedOnOperation(SocketAddress address) {
+      failedServers.add(address);
+   }
+
    private ChannelPool newPool(SocketAddress address) {
       log.debugf("Creating new channel pool for %s", address);
       Bootstrap bootstrap = new Bootstrap()
@@ -284,7 +288,14 @@ public class ChannelFactory {
       return fetchChannelAndInvoke(server, operation);
    }
 
-   public <T extends ChannelOperation> T fetchChannelAndInvoke(SocketAddress server, T operation) {
+   public <T extends ChannelOperation> T fetchChannelAndInvoke(SocketAddress preference, byte[] cacheName, T operation) {
+      if (failedServers.contains(preference)) {
+         return fetchChannelAndInvoke(failedServers, cacheName, operation);
+      }
+      return fetchChannelAndInvoke(preference, operation);
+   }
+
+   private <T extends ChannelOperation> T fetchChannelAndInvoke(SocketAddress server, T operation) {
       ChannelPool pool = channelPoolMap.computeIfAbsent(server, newPool);
       pool.acquire(operation);
       return operation;
@@ -323,7 +334,7 @@ public class ChannelFactory {
       if (cacheInfo != null && cacheInfo.getConsistentHash() != null) {
          SocketAddress server = cacheInfo.getConsistentHash().getServer(key);
          if (server != null && (failedServers == null || !failedServers.contains(server))) {
-            return fetchChannelAndInvoke(server, operation);
+            return fetchChannelAndInvoke(server, cacheName, operation);
          }
       }
       return fetchChannelAndInvoke(failedServers, cacheName, operation);
@@ -356,6 +367,7 @@ public class ChannelFactory {
             if (hashFunctionVersion >= 0) {
                SegmentConsistentHash consistentHash =
                      createConsistentHash(segmentOwners, hashFunctionVersion, cacheInfo.getCacheName());
+               failedServers.removeAll(addressList);
                newCacheInfo = cacheInfo.withNewHash(responseTopologyAge, responseTopologyId, addressList,
                      consistentHash, segmentOwners.length);
             } else {

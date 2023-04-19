@@ -63,7 +63,7 @@ public class GetWithMetadataOperation<V> extends AbstractKeyOperation<MetadataVa
    @Override
    protected void fetchChannelAndInvoke(int retryCount, Set<SocketAddress> failedServers) {
       if (retryCount == 0 && preferredServer != null) {
-         channelFactory.fetchChannelAndInvoke(preferredServer, this);
+         channelFactory.fetchChannelAndInvoke(preferredServer, cacheName(), this);
       } else {
          retried = retryCount != 0;
          super.fetchChannelAndInvoke(retryCount, failedServers);

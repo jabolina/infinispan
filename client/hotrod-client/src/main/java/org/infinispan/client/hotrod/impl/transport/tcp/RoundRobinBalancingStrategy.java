@@ -39,6 +39,7 @@ public class RoundRobinBalancingStrategy implements FailoverRequestBalancingStra
     */
    @Override
    public SocketAddress nextServer(Set<SocketAddress> failedServers) {
+      int j = 0;
       for (int i = 0;; ++i) {
          SocketAddress server = getServerByIndex(index++);
          // don't allow index to overflow and have a negative value
@@ -54,6 +55,12 @@ public class RoundRobinBalancingStrategy implements FailoverRequestBalancingStra
             }
 
             return server;
+         }
+
+         if (++j >= servers.length) {
+            if (log.isTraceEnabled()) {
+               System.out.printf("No available servers, with failed servers %s", failedServers.toString());
+            }
          }
       }
    }

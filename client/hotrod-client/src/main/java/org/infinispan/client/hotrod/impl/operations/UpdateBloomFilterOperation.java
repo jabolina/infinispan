@@ -29,7 +29,7 @@ public class UpdateBloomFilterOperation extends HotRodOperation<Void> implements
    @Override
    public CompletableFuture<Void> execute() {
       try {
-         channelFactory.fetchChannelAndInvoke(address, this);
+         channelFactory.fetchChannelAndInvoke(address, cacheName(), this);
       } catch (Exception e) {
          completeExceptionally(e);
       }

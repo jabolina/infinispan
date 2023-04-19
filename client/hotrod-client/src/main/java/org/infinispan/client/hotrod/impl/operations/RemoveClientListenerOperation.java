@@ -43,7 +43,7 @@ public class RemoveClientListenerOperation extends HotRodOperation<Void> impleme
       listenerId = listenerNotifier.findListenerId(listener);
       if (listenerId != null) {
          SocketAddress address = listenerNotifier.findAddress(listenerId);
-         channelFactory.fetchChannelAndInvoke(address, this);
+         channelFactory.fetchChannelAndInvoke(address, cacheName(), this);
       } else {
          complete(null);
       }

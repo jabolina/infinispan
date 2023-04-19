@@ -11,6 +11,7 @@ import static org.testng.AssertJUnit.assertEquals;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Queue;
 
 import org.infinispan.client.hotrod.exceptions.HotRodClientException;
@@ -85,7 +86,7 @@ public class ServerErrorTest extends SingleCacheManagerTest {
       // Obtain a reference to the single connection in the pool
       ChannelFactory channelFactory = remoteCacheManager.getChannelFactory();
       InetSocketAddress address = InetSocketAddress.createUnresolved(hotrodServer.getHost(), hotrodServer.getPort());
-      Channel channel = channelFactory.fetchChannelAndInvoke(address, new NoopChannelOperation()).join();
+      Channel channel = channelFactory.fetchChannelAndInvoke(address, remoteCache.getName().getBytes(StandardCharsets.UTF_8), new NoopChannelOperation()).join();
 
       // Obtain a reference to the scheduled executor and its task queue
       AbstractScheduledEventExecutor scheduledExecutor = ((AbstractScheduledEventExecutor) channel.eventLoop());

@@ -62,7 +62,7 @@ public class IterationStartOperation extends RetryOnFailureOperation<IterationSt
    @Override
    protected void fetchChannelAndInvoke(int retryCount, Set<SocketAddress> failedServers) {
       if (addressTarget != null) {
-         channelFactory.fetchChannelAndInvoke(addressTarget, this);
+         channelFactory.fetchChannelAndInvoke(addressTarget, cacheName(), this);
       } else {
          super.fetchChannelAndInvoke(retryCount, failedServers);
       }
