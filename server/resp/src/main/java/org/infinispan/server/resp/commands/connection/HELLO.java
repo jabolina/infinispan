@@ -13,6 +13,8 @@ import org.infinispan.server.resp.RespRequestHandler;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 
+import javax.security.auth.Subject;
+
 /**
  * @link https://redis.io/commands/hello/
  * @since 14.0
@@ -26,7 +28,7 @@ public class HELLO extends RespCommand implements AuthResp3Command {
    public CompletionStage<RespRequestHandler> perform(Resp3AuthHandler handler,
                                                       ChannelHandlerContext ctx,
                                                       List<byte[]> arguments) {
-      CompletionStage<Boolean> successStage = null;
+      CompletionStage<Subject> successStage = null;
 
       byte[] respProtocolBytes = arguments.get(0);
       String version = new String(respProtocolBytes, CharsetUtil.UTF_8);
@@ -41,7 +43,10 @@ public class HELLO extends RespCommand implements AuthResp3Command {
       }
 
       if (successStage != null) {
-         return handler.stageToReturn(successStage, ctx, auth -> auth ? handler.respServer().newHandler() : handler);
+         return handler.stageToReturn(successStage, ctx, subject -> {
+            if (subject == null) return handler;
+            return AUTH.createAfterAuthentication(subject, handler);
+         });
       }
 
       return handler.myStage();

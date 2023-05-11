@@ -7,6 +7,7 @@ import org.infinispan.server.resp.commands.AuthResp3Command;
 import javax.security.auth.Subject;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 public class Resp3AuthHandler extends CacheRespRequestHandler {
@@ -31,34 +32,35 @@ public class Resp3AuthHandler extends CacheRespRequestHandler {
       return myStage;
    }
 
-   public CompletionStage<Boolean> performAuth(ChannelHandlerContext ctx, byte[] username, byte[] password) {
+   public CompletionStage<Subject> performAuth(ChannelHandlerContext ctx, byte[] username, byte[] password) {
       return performAuth(ctx, new String(username, StandardCharsets.UTF_8), new String(password, StandardCharsets.UTF_8));
    }
 
-   private CompletionStage<Boolean> performAuth(ChannelHandlerContext ctx, String username, String password) {
+   private CompletionStage<Subject> performAuth(ChannelHandlerContext ctx, String username, String password) {
       Authenticator authenticator = respServer.getConfiguration().authentication().authenticator();
       if (authenticator == null) {
-         return CompletableFutures.booleanStage(handleAuthResponse(ctx, null));
+         Subject subject = handleAuthResponse(ctx, null);
+         return subject == null ? CompletableFutures.completedNull() : CompletableFuture.completedFuture(subject);
       }
       return authenticator.authenticate(username, password.toCharArray())
             // Note we have to write to our variables in the event loop (in this case cache)
             .thenApplyAsync(r -> handleAuthResponse(ctx, r), ctx.channel().eventLoop())
             .exceptionally(t -> {
                handleUnauthorized(ctx);
-               return false;
+               return null;
             });
    }
 
-   private boolean handleAuthResponse(ChannelHandlerContext ctx, Subject subject) {
+   private Subject handleAuthResponse(ChannelHandlerContext ctx, Subject subject) {
       assert ctx.channel().eventLoop().inEventLoop();
       if (subject == null) {
          ByteBufferUtils.stringToByteBuf("-ERR Client sent AUTH, but no password is set\r\n", allocatorToUse);
-         return false;
+         return null;
       }
 
       setCache(cache.withSubject(subject));
       Consumers.OK_BICONSUMER.accept(null, allocatorToUse);
-      return true;
+      return subject;
    }
 
    private void handleUnauthorized(ChannelHandlerContext ctx) {

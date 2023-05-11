@@ -17,7 +17,7 @@ public class CacheRespRequestHandler extends RespRequestHandler {
       return cache;
    }
 
-   protected void setCache(AdvancedCache<byte[], byte[]> cache) {
+   public void setCache(AdvancedCache<byte[], byte[]> cache) {
       this.cache = cache;
    }
 

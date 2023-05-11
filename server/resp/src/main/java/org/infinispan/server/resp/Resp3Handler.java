@@ -20,7 +20,7 @@ public class Resp3Handler extends Resp3AuthHandler {
    }
 
    @Override
-   protected void setCache(AdvancedCache<byte[], byte[]> cache) {
+   public void setCache(AdvancedCache<byte[], byte[]> cache) {
       super.setCache(cache);
       ignorePreviousValueCache = cache.withFlags(Flag.SKIP_CACHE_LOAD, Flag.IGNORE_RETURN_VALUES);
       supportsDuplicates = EmbeddedMultimapCacheManagerFactory.from(cache.getCacheManager()).get(cache.getName(), true);
