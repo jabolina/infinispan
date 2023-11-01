@@ -89,7 +89,7 @@ import org.infinispan.server.core.backup.BackupManagerImpl;
 import org.infinispan.server.core.configuration.ProtocolServerConfiguration;
 import org.infinispan.server.core.configuration.ProtocolServerConfigurationBuilder;
 import org.infinispan.server.core.security.sasl.jgroups.SASL;
-import org.infinispan.server.core.security.sasl.jgroups.SASLContext;
+import org.infinispan.server.core.security.sasl.jgroups.SaslContext;
 import org.infinispan.server.datasource.DataSourceFactory;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration;
@@ -369,7 +369,7 @@ public class Server extends BaseServerManagement implements AutoCloseable {
             String securityRealm = serverTransportConfiguration.securityRealm();
             Supplier<SSLContext> serverSSLContextSupplier = serverBuilder.serverSSLContextSupplier(securityRealm);
             Supplier<SSLContext> clientSSLContextSupplier = serverBuilder.clientSSLContextSupplier(securityRealm);
-            Supplier<SASLContext> saslContextSupplier = serverBuilder.saslContextSupplier(securityRealm);
+            Supplier<SaslContext> saslContextSupplier = serverBuilder.saslContextSupplier(securityRealm);
             NamedSocketFactory namedSocketFactory = new NamedSocketFactory(() -> clientSSLContextSupplier.get().getSocketFactory(), () -> serverSSLContextSupplier.get().getServerSocketFactory());
             global.transport().addProperty(JGroupsTransport.SOCKET_FACTORY, namedSocketFactory);
             global.transport().addProperty(JGroupsTransport.SASL_PROTOCOL, new SASL(saslContextSupplier));

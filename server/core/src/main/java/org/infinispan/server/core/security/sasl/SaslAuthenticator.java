@@ -10,6 +10,7 @@ import java.util.Map;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.security.auth.Subject;
+import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
 import javax.security.sasl.SaslServerFactory;
@@ -53,6 +54,21 @@ public interface SaslAuthenticator {
       throw new UnsupportedOperationException();
    }
 
+   default SaslServer createSaslServer(SaslConfiguration configuration, List<Principal> principals, String mechanism, String protocol) throws SaslException {
+      if (configuration != null && configuration.serverSubject() != null) {
+         try {
+            return Subject.doAs(configuration.serverSubject(), (PrivilegedExceptionAction<SaslServer>) () ->
+                  createSaslServer(mechanism, principals, protocol, configuration.serverName(), configuration.mechProperties()));
+         } catch (PrivilegedActionException e) {
+            throw (SaslException) e.getCause();
+         }
+      }
+
+      Map<String, String> properties = configuration != null ? configuration.mechProperties() : null;
+      String serverName = configuration != null ? configuration.serverName() : null;
+      return createSaslServer(mechanism, principals, protocol, serverName, properties);
+   }
+
    static SaslServer createSaslServer(SaslConfiguration configuration, Channel channel, String mech, String protocol) throws Throwable {
       SaslAuthenticator sap = configuration.authenticator();
       return createSaslServer(sap, configuration, channel, mech, protocol);
@@ -72,19 +88,10 @@ public interface SaslAuthenticator {
          }
       }
       principals.add(new InetAddressPrincipal(((InetSocketAddress) channel.remoteAddress()).getAddress()));
-      if (configuration != null && configuration.serverSubject() != null) {
-         try {
-            // We must use Subject.doAs() here instead of Security.doAs()
-            return Subject.doAs(configuration.serverSubject(), (PrivilegedExceptionAction<SaslServer>) () ->
-                  sap.createSaslServer(mech, principals, protocol, configuration.serverName(),
-                        configuration.mechProperties()));
-         } catch (PrivilegedActionException e) {
-            throw e.getCause();
-         }
-      } else {
-         Map<String, String> mechProperties = configuration != null ? configuration.mechProperties() : null;
-         String serverName = configuration != null ? configuration.serverName() : null;
-         return sap.createSaslServer(mech, principals, protocol, serverName, mechProperties);
-      }
+      return sap.createSaslServer(configuration, principals, mech, protocol);
+   }
+
+   default SaslClient createSaslClient() {
+      throw new UnsupportedOperationException();
    }
 }

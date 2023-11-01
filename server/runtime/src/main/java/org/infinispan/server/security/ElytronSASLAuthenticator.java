@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
+import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
 
@@ -108,5 +109,11 @@ public class ElytronSASLAuthenticator implements SaslAuthenticator {
          return factory;
       });
       return saslServer == null ? null : new ElytronSubjectSaslServer(saslServer, principals, null);
+   }
+
+   @Override
+   public SaslClient createSaslClient() {
+      saslAuthenticationFactory.
+      return SaslAuthenticator.super.createSaslClient();
    }
 }

@@ -20,7 +20,7 @@ import org.infinispan.server.configuration.security.ServerTransportConfiguration
 import org.infinispan.server.configuration.security.TransportAuthenticationConfiguration;
 import org.infinispan.server.core.configuration.SaslConfiguration;
 import org.infinispan.server.core.security.sasl.SaslAuthenticator;
-import org.infinispan.server.core.security.sasl.jgroups.SASLContext;
+import org.infinispan.server.core.security.sasl.jgroups.SaslContext;
 
 /**
  * @author Tristan Tarrant
@@ -124,7 +124,7 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
       return supplier;
    }
 
-   public Supplier<SASLContext> saslContextSupplier(String realmName) {
+   public Supplier<SaslContext> saslContextSupplier(String realmName) {
       SASLContextSupplier supplier = new SASLContextSupplier(realmName);
       suppliers.add(supplier);
       return supplier;
@@ -165,7 +165,7 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
       }
    }
 
-   private static class SASLContextSupplier extends ConfigurableSupplier<SASLContext> {
+   private static class SASLContextSupplier extends ConfigurableSupplier<SaslContext> {
       private final String realmName;
 
       private SASLContextSupplier(String realmName) {
@@ -173,13 +173,13 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
       }
 
       @Override
-      public SASLContext get() {
+      public SaslContext get() {
          SecurityConfiguration security = securityConfiguration();
          RealmConfiguration realmConfiguration = security.realms().getRealm(realmName);
          TransportAuthenticationConfiguration configuration = realmConfiguration.transportAuthenticationConfiguration();
          if (configuration == null) return null;
 
-         return new SASLContext() {
+         return new SaslContext() {
             @Override
             public SaslAuthenticator saslAuthenticator() {
                return configuration.saslConfiguration().authenticator();
