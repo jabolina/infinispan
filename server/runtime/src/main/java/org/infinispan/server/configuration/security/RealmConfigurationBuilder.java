@@ -28,6 +28,7 @@ public class RealmConfigurationBuilder implements Builder<RealmConfiguration> {
    private final AttributeSet attributes;
    private final ServerIdentitiesConfigurationBuilder serverIdentitiesConfiguration = new ServerIdentitiesConfigurationBuilder(this);
    private final List<RealmProviderBuilder<?>> builders = new ArrayList<>();
+   private TransportAuthenticationConfigurationBuilder transportAuthentication = null;
 
    RealmConfigurationBuilder(String name) {
       this.attributes = RealmConfiguration.attributeDefinitionSet();
@@ -87,6 +88,10 @@ public class RealmConfigurationBuilder implements Builder<RealmConfiguration> {
       return addBuilder(Element.PROPERTIES_REALM, new PropertiesRealmConfigurationBuilder());
    }
 
+   public TransportAuthenticationConfigurationBuilder transportAuthenticationConfigurationBuilder() {
+      return transportAuthentication = new TransportAuthenticationConfigurationBuilder();
+   }
+
    public ServerIdentitiesConfigurationBuilder serverIdentitiesConfiguration() {
       return serverIdentitiesConfiguration;
    }
@@ -111,6 +116,9 @@ public class RealmConfigurationBuilder implements Builder<RealmConfiguration> {
          }
          builder.validate();
       }
+
+      if (transportAuthentication != null)
+         transportAuthentication.validate();
    }
 
    @Override
@@ -119,7 +127,8 @@ public class RealmConfigurationBuilder implements Builder<RealmConfiguration> {
       return new RealmConfiguration(
             attributes.protect(),
             serverIdentitiesConfiguration.create(),
-            builders.stream().map(RealmProviderBuilder::create).collect(Collectors.toList())
+            builders.stream().map(RealmProviderBuilder::create).collect(Collectors.toList()),
+            transportAuthentication != null ? transportAuthentication.create() : null
       );
    }
 

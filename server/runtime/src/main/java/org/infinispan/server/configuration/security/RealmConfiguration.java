@@ -55,13 +55,16 @@ public class RealmConfiguration extends ConfigurationElement<RealmConfiguration>
    private RealmIdentityCache cache;
    private SSLContext serverSslContext = null;
    private SSLContext clientSslContext = null;
+   private TransportAuthenticationConfiguration transportAuthentication;
 
    RealmConfiguration(AttributeSet attributes,
                       ServerIdentitiesConfiguration serverIdentitiesConfiguration,
-                      List<RealmProvider> realmConfigurations) {
+                      List<RealmProvider> realmConfigurations,
+                      TransportAuthenticationConfiguration transportAuthentication) {
       super(Element.SECURITY_REALM, attributes);
       this.serverIdentitiesConfiguration = serverIdentitiesConfiguration;
       this.realmProviders = realmConfigurations;
+      this.transportAuthentication = transportAuthentication;
    }
 
    public ServerIdentitiesConfiguration serverIdentitiesConfiguration() {
@@ -110,6 +113,10 @@ public class RealmConfiguration extends ConfigurationElement<RealmConfiguration>
       } else {
          return clientSslContext;
       }
+   }
+
+   public TransportAuthenticationConfiguration transportAuthenticationConfiguration() {
+      return transportAuthentication;
    }
 
    public boolean hasServerSSLContext() {

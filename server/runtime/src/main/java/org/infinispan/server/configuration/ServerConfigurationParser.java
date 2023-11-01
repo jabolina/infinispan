@@ -47,6 +47,7 @@ import org.infinispan.server.configuration.security.SSLConfigurationBuilder;
 import org.infinispan.server.configuration.security.SSLEngineConfigurationBuilder;
 import org.infinispan.server.configuration.security.ServerIdentitiesConfigurationBuilder;
 import org.infinispan.server.configuration.security.TokenRealmConfigurationBuilder;
+import org.infinispan.server.configuration.security.TransportAuthenticationConfigurationBuilder;
 import org.infinispan.server.configuration.security.TrustStoreConfigurationBuilder;
 import org.infinispan.server.configuration.security.TrustStoreRealmConfigurationBuilder;
 import org.infinispan.server.configuration.security.UserPropertiesConfigurationBuilder;
@@ -56,6 +57,7 @@ import org.infinispan.server.core.configuration.SaslConfigurationBuilder;
 import org.infinispan.server.hotrod.configuration.HotRodServerConfigurationBuilder;
 import org.infinispan.server.memcached.configuration.MemcachedServerConfigurationBuilder;
 import org.infinispan.server.resp.configuration.RespServerConfigurationBuilder;
+import org.infinispan.server.security.ElytronSASLAuthenticator;
 import org.infinispan.server.security.PasswordCredentialSource;
 import org.kohsuke.MetaInfServices;
 import org.wildfly.security.auth.realm.ldap.DirContextFactory;
@@ -488,8 +490,27 @@ public class ServerConfigurationParser implements ConfigurationParser {
                   parseLegacyTrustStoreRealm(reader, builder, securityRealmBuilder.trustStoreConfiguration(), securityRealmBuilder.serverIdentitiesConfiguration());
                }
                break;
+            case TRANSPORT_AUTHENTICATION:
+               parseTransportAuthentication(reader, name, securityRealmBuilder.transportAuthenticationConfigurationBuilder());
+               break;
             default:
                throw ParseUtils.unexpectedElement(reader, element);
+         }
+      }
+   }
+
+   private void parseTransportAuthentication(ConfigurationReader reader, String realmName, TransportAuthenticationConfigurationBuilder builder) {
+      while (reader.inTag()) {
+         Element element = Element.forName(reader.getLocalName());
+         switch (element) {
+            case SASL:
+               SaslConfigurationBuilder saslBuilder = builder.saslConfigurationBuilder();
+               String serverPrincipal = parseSasl(reader, saslBuilder);
+               saslBuilder.authenticator(new ElytronSASLAuthenticator(realmName, serverPrincipal, saslBuilder.mechanisms()));
+               break;
+            default:
+               throw ParseUtils.unexpectedElement(reader, element);
+
          }
       }
    }

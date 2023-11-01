@@ -114,6 +114,7 @@ import org.jgroups.conf.ClassConfigurator;
 import org.jgroups.fork.ForkChannel;
 import org.jgroups.jmx.JmxConfigurator;
 import org.jgroups.protocols.FORK;
+import org.jgroups.protocols.pbcast.GMS;
 import org.jgroups.protocols.relay.RELAY;
 import org.jgroups.protocols.relay.RELAY2;
 import org.jgroups.protocols.relay.RouteStatusListener;
@@ -154,6 +155,7 @@ public class JGroupsTransport implements Transport, ChannelListener, AddressGene
    public static final String CHANNEL_CONFIGURATOR = "channelConfigurator";
    public static final String SOCKET_FACTORY = "socketFactory";
    public static final String DATA_SOURCE = "dataSource";
+   public static final String SASL_PROTOCOL = "saslProtocol";
    public static final short REQUEST_FLAGS_UNORDERED =
          (short) (Message.Flag.OOB.value() | Message.Flag.NO_TOTAL_ORDER.value());
    public static final short REQUEST_FLAGS_UNORDERED_NO_FC = (short) (REQUEST_FLAGS_UNORDERED | Message.Flag.NO_FC.value());
@@ -727,6 +729,13 @@ public class JGroupsTransport implements Transport, ChannelListener, AddressGene
       if (props != null && props.containsKey(SOCKET_FACTORY) && !props.containsKey(CHANNEL_CONFIGURATOR)) {
          Protocol protocol = channel.getProtocolStack().getTopProtocol();
          protocol.setSocketFactory((SocketFactory) props.get(SOCKET_FACTORY));
+      }
+
+      if (props != null && props.containsKey(SASL_PROTOCOL)) {
+         ProtocolStack stack = channel.getProtocolStack();
+         Protocol sasl = (Protocol) props.get(SASL_PROTOCOL);
+         GMS gms = stack.findProtocol(GMS.class);
+         stack.insertProtocolInStack(sasl, gms, ProtocolStack.Position.BELOW);
       }
    }
 

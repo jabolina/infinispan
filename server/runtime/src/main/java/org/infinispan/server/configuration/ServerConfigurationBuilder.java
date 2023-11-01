@@ -13,9 +13,14 @@ import org.infinispan.commons.configuration.Combine;
 import org.infinispan.commons.configuration.attributes.AttributeSet;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.server.configuration.endpoint.EndpointsConfigurationBuilder;
+import org.infinispan.server.configuration.security.RealmConfiguration;
 import org.infinispan.server.configuration.security.SecurityConfiguration;
 import org.infinispan.server.configuration.security.SecurityConfigurationBuilder;
 import org.infinispan.server.configuration.security.ServerTransportConfigurationBuilder;
+import org.infinispan.server.configuration.security.TransportAuthenticationConfiguration;
+import org.infinispan.server.core.configuration.SaslConfiguration;
+import org.infinispan.server.core.security.sasl.SaslAuthenticator;
+import org.infinispan.server.core.security.sasl.jgroups.SASLContext;
 
 /**
  * @author Tristan Tarrant
@@ -29,7 +34,7 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
    private final DataSourcesConfigurationBuilder dataSources = new DataSourcesConfigurationBuilder();
    private final EndpointsConfigurationBuilder endpoints = new EndpointsConfigurationBuilder(this);
    private final ServerTransportConfigurationBuilder transport = new ServerTransportConfigurationBuilder();
-   private final List<SSLContextSupplier> suppliers = new ArrayList<>();
+   private final List<ConfigurableSupplier<?>> suppliers = new ArrayList<>();
    private final GlobalConfigurationBuilder builder;
 
    public ServerConfigurationBuilder(GlobalConfigurationBuilder builder) {
@@ -83,12 +88,9 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
    @Override
    public ServerConfiguration create() {
       SecurityConfiguration securityConfiguration = security.create();
-      for(SSLContextSupplier supplier : suppliers) {
-         supplier.configuration = securityConfiguration;
-      }
       InterfacesConfiguration interfacesConfiguration = interfaces.create();
       SocketBindingsConfiguration bindingsConfiguration = socketBindings.create(interfacesConfiguration);
-      return new ServerConfiguration(
+      ServerConfiguration configuration = new ServerConfiguration(
             interfacesConfiguration,
             bindingsConfiguration,
             securityConfiguration,
@@ -96,6 +98,12 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
             endpoints.create(builder, bindingsConfiguration, securityConfiguration),
             transport.create()
       );
+
+      for(ConfigurableSupplier<?> supplier : suppliers) {
+         supplier.setConfiguration(configuration);
+      }
+
+      return configuration;
    }
 
    @Override
@@ -116,10 +124,33 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
       return supplier;
    }
 
-   private static class SSLContextSupplier implements Supplier<SSLContext> {
+   public Supplier<SASLContext> saslContextSupplier(String realmName) {
+      SASLContextSupplier supplier = new SASLContextSupplier(realmName);
+      suppliers.add(supplier);
+      return supplier;
+   }
+
+   private static abstract class ConfigurableSupplier<T> implements Supplier<T> {
+      private ServerConfiguration configuration;
+
+      protected void setConfiguration(ServerConfiguration configuration) {
+         this.configuration = configuration;
+      }
+
+      protected ServerConfiguration serverConfiguration() {
+         return configuration;
+      }
+
+      protected SecurityConfiguration securityConfiguration() {
+         if (configuration == null) return null;
+
+         return configuration.security();
+      }
+   }
+
+   private static class SSLContextSupplier extends ConfigurableSupplier<SSLContext> {
       final String name;
       final boolean client;
-      SecurityConfiguration configuration;
 
       SSLContextSupplier(String name, boolean client) {
          this.name = name;
@@ -128,7 +159,37 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
 
       @Override
       public SSLContext get() {
-         return client ? configuration.realms().getRealm(name).clientSSLContext() : configuration.realms().getRealm(name).serverSSLContext();
+         return client
+               ? securityConfiguration().realms().getRealm(name).clientSSLContext()
+               : securityConfiguration().realms().getRealm(name).serverSSLContext();
+      }
+   }
+
+   private static class SASLContextSupplier extends ConfigurableSupplier<SASLContext> {
+      private final String realmName;
+
+      private SASLContextSupplier(String realmName) {
+         this.realmName = realmName;
+      }
+
+      @Override
+      public SASLContext get() {
+         SecurityConfiguration security = securityConfiguration();
+         RealmConfiguration realmConfiguration = security.realms().getRealm(realmName);
+         TransportAuthenticationConfiguration configuration = realmConfiguration.transportAuthenticationConfiguration();
+         if (configuration == null) return null;
+
+         return new SASLContext() {
+            @Override
+            public SaslAuthenticator saslAuthenticator() {
+               return configuration.saslConfiguration().authenticator();
+            }
+
+            @Override
+            public SaslConfiguration configuration() {
+               return configuration.saslConfiguration();
+            }
+         };
       }
    }
 }
