@@ -8,21 +8,19 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
 
-import org.infinispan.server.core.configuration.SaslConfiguration;
-import org.infinispan.server.core.security.sasl.SaslAuthenticator;
 import org.jgroups.Address;
 import org.jgroups.EmptyMessage;
 import org.jgroups.Message;
 
-public class SaslProtocolClientContext implements SaslProtocolContext {
+public class SaslProtocolClientHandler implements SaslProtocolHandler {
 
    private static final byte[] EMPTY_CHALLENGE = new byte[0];
    private final SaslClient client;
    private final Subject subject;
 
-   public SaslProtocolClientContext(SaslAuthenticator authenticator, SaslConfiguration configuration) {
-      this.subject = configuration.serverSubject();
-      this.client = authenticator.createSaslClient();
+   public SaslProtocolClientHandler(SaslContext context) {
+      this.subject = context.configuration().serverSubject();
+      this.client = context.saslAuthenticator().createSaslClient();
    }
 
    @Override

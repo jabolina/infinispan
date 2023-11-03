@@ -5,7 +5,7 @@ import javax.security.sasl.SaslException;
 import org.jgroups.Address;
 import org.jgroups.Message;
 
-interface SaslProtocolContext {
+interface SaslProtocolHandler {
 
    boolean isSuccessful();
 

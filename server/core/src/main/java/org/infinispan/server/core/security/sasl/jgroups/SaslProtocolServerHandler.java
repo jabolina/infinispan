@@ -9,19 +9,17 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
 
-import org.infinispan.server.core.configuration.SaslConfiguration;
-import org.infinispan.server.core.security.sasl.SaslAuthenticator;
 import org.jgroups.Address;
 import org.jgroups.EmptyMessage;
 import org.jgroups.Message;
 
-public class SaslProtocolServerContext implements SaslProtocolContext {
+public class SaslProtocolServerHandler implements SaslProtocolHandler {
 
    private final SaslServer server;
 
-   public SaslProtocolServerContext(SaslAuthenticator authenticator, SaslConfiguration configuration, String mechanism,
-                                    List<Principal> principals) throws SaslException {
-      this.server = authenticator.createSaslServer(configuration, principals, mechanism, SASL_PROTOCOL_NAME);
+   public SaslProtocolServerHandler(SaslContext context, List<Principal> principals) throws SaslException {
+      this.server = context.saslAuthenticator()
+            .createSaslServer(context.configuration(), principals, context.mechanism(), SASL_PROTOCOL_NAME);
    }
 
    @Override

@@ -17,10 +17,12 @@ import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration;
 import org.infinispan.server.memcached.configuration.MemcachedServerConfiguration;
 import org.infinispan.server.resp.authentication.RespAuthenticator;
 import org.infinispan.server.resp.configuration.RespServerConfiguration;
+import org.wildfly.security.auth.client.AuthenticationConfiguration;
 import org.wildfly.security.auth.server.MechanismConfiguration;
 import org.wildfly.security.auth.server.MechanismConfigurationSelector;
 import org.wildfly.security.auth.server.MechanismRealmConfiguration;
 import org.wildfly.security.auth.server.sasl.SaslAuthenticationFactory;
+import org.wildfly.security.sasl.SaslMechanismSelector;
 import org.wildfly.security.sasl.digest.WildFlyElytronSaslDigestProvider;
 import org.wildfly.security.sasl.external.WildFlyElytronSaslExternalProvider;
 import org.wildfly.security.sasl.gs2.WildFlyElytronSaslGs2Provider;
@@ -33,6 +35,7 @@ import org.wildfly.security.sasl.util.AggregateSaslServerFactory;
 import org.wildfly.security.sasl.util.FilterMechanismSaslServerFactory;
 import org.wildfly.security.sasl.util.PropertiesSaslServerFactory;
 import org.wildfly.security.sasl.util.ProtocolSaslServerFactory;
+import org.wildfly.security.sasl.util.SecurityProviderSaslClientFactory;
 import org.wildfly.security.sasl.util.SecurityProviderSaslServerFactory;
 import org.wildfly.security.sasl.util.ServerNameSaslServerFactory;
 
@@ -98,6 +101,12 @@ public class ElytronSASLAuthenticator implements SaslAuthenticator {
       builder.setMechanismConfigurationSelector(MechanismConfigurationSelector.constantSelector(mechConfigurationBuilder.build()));
       builder.setScheduledExecutorService(timeoutExecutor);
       saslAuthenticationFactory = builder.build();
+
+      SecurityProviderSaslClientFactory securityProviderSaslClientFactory = new SecurityProviderSaslClientFactory(() -> providers);
+
+
+      AuthenticationConfiguration.empty()
+            .setSaslMechanismSelector(SaslMechanismSelector.NONE.addMechanisms())
    }
 
    @Override
@@ -113,7 +122,17 @@ public class ElytronSASLAuthenticator implements SaslAuthenticator {
 
    @Override
    public SaslClient createSaslClient() {
-      saslAuthenticationFactory.
+      Provider[] providers = new Provider[]{
+            WildFlyElytronSaslPlainProvider.getInstance(),
+            WildFlyElytronSaslDigestProvider.getInstance(),
+            WildFlyElytronSaslScramProvider.getInstance(),
+            WildFlyElytronSaslExternalProvider.getInstance(),
+            WildFlyElytronSaslLocalUserProvider.getInstance(),
+            WildFlyElytronSaslOAuth2Provider.getInstance(),
+            WildFlyElytronSaslGssapiProvider.getInstance(),
+            WildFlyElytronSaslGs2Provider.getInstance()
+      };
+      SecurityProviderSaslClientFactory securityProviderSaslClientFactory = new SecurityProviderSaslClientFactory(() -> providers);
       return SaslAuthenticator.super.createSaslClient();
    }
 }

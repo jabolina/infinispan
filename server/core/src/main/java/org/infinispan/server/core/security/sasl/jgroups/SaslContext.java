@@ -8,4 +8,6 @@ public interface SaslContext {
    SaslAuthenticator saslAuthenticator();
 
    SaslConfiguration configuration();
+
+   String mechanism();
 }
