@@ -6,6 +6,7 @@ import static org.infinispan.server.test.core.Containers.DOCKER_CLIENT;
 import static org.infinispan.server.test.core.Containers.getDockerBridgeAddress;
 import static org.infinispan.server.test.core.Containers.imageArchitecture;
 import static org.infinispan.server.test.core.TestSystemPropertyNames.INFINISPAN_TEST_SERVER_CONTAINER_VOLUME_REQUIRED;
+import static org.infinispan.server.test.core.TestSystemPropertyNames.INFINISPAN_TEST_SERVER_EXPOSE_PORT;
 import static org.infinispan.server.test.core.TestSystemPropertyNames.INFINISPAN_TEST_SERVER_LOG_FILE;
 
 import java.io.ByteArrayInputStream;
@@ -31,6 +32,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -290,6 +292,7 @@ public class ContainerInfinispanServerDriver extends AbstractInfinispanServerDri
       }
 
       GenericContainer<?> container = new GenericContainer<>(image)
+            .withExposedPorts(readExposedPorts())
             .withCreateContainerCmdModifier(cmd -> {
                if (volumesRequired) {
                   cmd.getHostConfig().withMounts(
@@ -351,6 +354,13 @@ public class ContainerInfinispanServerDriver extends AbstractInfinispanServerDri
       return container;
    }
 
+   private Integer[] readExposedPorts() {
+      return Arrays.stream(System.getProperty(INFINISPAN_TEST_SERVER_EXPOSE_PORT, "").split(","))
+            .filter(s -> !s.isEmpty())
+            .map(Integer::parseInt)
+            .toArray(Integer[]::new);
+   }
+
    @Override
    protected void stop() {
       for (int i = 0; i < containers.length; i++) {
@@ -364,7 +374,11 @@ public class ContainerInfinispanServerDriver extends AbstractInfinispanServerDri
 
    @Override
    public boolean isRunning(int server) {
-      return containers[server].isRunning();
+      return containers[server] != null && containers[server].isRunning();
+   }
+
+   public GenericContainer<?> container(int server) {
+      return containers[server].delegate();
    }
 
    @Override

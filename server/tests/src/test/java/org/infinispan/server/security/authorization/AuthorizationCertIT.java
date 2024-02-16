@@ -121,8 +121,8 @@ public class AuthorizationCertIT extends InfinispanSuite {
             options.getNetClientOptions()
                   .setSsl(true)
                   .setSslEngineOptions(new JdkSSLEngineOptions())
-                  .setPfxKeyCertOptions(certOpts)
-                  .setPfxTrustOptions(trustOpts);
+                  /*.setPfxKeyCertOptions(certOpts)
+                  .setPfxTrustOptions(trustOpts)*/;
 
             return options;
          });

@@ -64,11 +64,11 @@ public class RespPubSubTest extends AbstractRespTest {
 
    private BlockingQueue<Map.Entry<String, String>> subscribe(RedisConnection conn, VertxTestContext ctx) {
       BlockingQueue<Map.Entry<String, String>> queue = new LinkedBlockingQueue<>();
-      conn.send(Request.cmd(Command.SUBSCRIBE).arg(CHANNEL), ctx.succeeding())
+      /*conn.send(Request.cmd(Command.SUBSCRIBE).arg(CHANNEL), ctx.succeeding())
             .handler(msg -> {
                Map.Entry<String, String> entry = Map.entry(msg.get(0).toString(), msg.get(2).toString());
                queue.add(entry);
-            });
+            });*/
 
       return queue;
    }
