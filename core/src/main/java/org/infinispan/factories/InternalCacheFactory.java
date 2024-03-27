@@ -376,7 +376,7 @@ public class InternalCacheFactory<K, V> {
          if (interceptor.getStatisticsEnabled()) {
             long beginTime = timeService.time();
             value = cache.get(key);
-            interceptor.addDataRead(value != null, timeService.timeDuration(beginTime, TimeUnit.NANOSECONDS));
+            interceptor.addDataRead(null, value != null, timeService.timeDuration(beginTime, TimeUnit.NANOSECONDS));
          } else {
             value = cache.get(key);
          }
