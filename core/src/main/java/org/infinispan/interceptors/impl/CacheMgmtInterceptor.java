@@ -50,11 +50,13 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.GlobalMetricsConfiguration;
 import org.infinispan.container.DataContainer;
+import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.impl.InternalDataContainer;
 import org.infinispan.container.offheap.OffHeapMemoryAllocator;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.FlagBitSets;
+import org.infinispan.distribution.DistributionInfo;
 import org.infinispan.distribution.DistributionManager;
 import org.infinispan.distribution.LocalizedCacheTopology;
 import org.infinispan.eviction.EvictionStrategy;
@@ -105,6 +107,7 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
    public void start() {
       startNanoseconds.set(timeService.time());
       resetNanoseconds.set(startNanoseconds.get());
+      counters.initialize(distributionManager);
    }
 
    @Override
@@ -548,7 +551,35 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
          displayName = "Number of cache hits",
          measurementType = MeasurementType.TRENDSUP)
    public long getHits() {
-      return counters.getAll(StripeB.hitsFieldUpdater);
+      return getHitsPrimary() + getHitsBackup() + getHitsNonOwner();
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute hits on the primary",
+         displayName = "Number of cache hits on the primary",
+         measurementType = MeasurementType.TRENDSUP)
+   public long getHitsPrimary() {
+      return getHits(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute hits on the backup",
+         displayName = "Number of cache hits on the backup",
+         measurementType = MeasurementType.TRENDSUP)
+   public long getHitsBackup() {
+      return getHits(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute hits on non-owner",
+         displayName = "Number of cache hits on non-owner",
+         measurementType = MeasurementType.TRENDSUP)
+   public long getHitsNonOwner() {
+      return getHits(counters.nonOwner);
+   }
+
+   private long getHits(StripedCounters<StripeB> stripe) {
+      return stripe.get(StripeB.hitsFieldUpdater);
    }
 
    @ManagedAttribute(
@@ -557,7 +588,38 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
          measurementType = MeasurementType.TRENDSUP
    )
    public long getMisses() {
-      return counters.getAll(StripeB.missesFieldUpdater);
+      return getMissesPrimary() + getMissesBackup() + getRemoveMissesNonOwner();
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute misses",
+         displayName = "Number of cache misses",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getMissesPrimary() {
+      return getMisses(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute misses",
+         displayName = "Number of cache misses",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getMissesBackup() {
+      return getMisses(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute misses",
+         displayName = "Number of cache misses",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getMissesNonOwner() {
+      return getMisses(counters.nonOwner);
+   }
+
+   private long getMisses(StripedCounters<StripeB> stripe) {
+      return stripe.get(StripeB.missesFieldUpdater);
    }
 
    @ManagedAttribute(
@@ -566,7 +628,38 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
          measurementType = MeasurementType.TRENDSUP
    )
    public long getRemoveHits() {
-      return counters.getAll(StripeB.removeHitsFieldUpdater);
+      return getRemoveHitsPrimary() + getRemoveHitsBackup() + getRemoveHitsNonOwner();
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache removal hits",
+         displayName = "Number of cache removal hits",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getRemoveHitsPrimary() {
+      return getRemoveHits(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache removal hits",
+         displayName = "Number of cache removal hits",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getRemoveHitsBackup() {
+      return getRemoveHits(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache removal hits",
+         displayName = "Number of cache removal hits",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getRemoveHitsNonOwner() {
+      return getRemoveHits(counters.nonOwner);
+   }
+
+   private long getRemoveHits(StripedCounters<StripeB> stripe) {
+      return stripe.get(StripeB.removeHitsFieldUpdater);
    }
 
    @ManagedAttribute(
@@ -575,7 +668,38 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
          measurementType = MeasurementType.TRENDSUP
    )
    public long getRemoveMisses() {
-      return counters.getAll(StripeB.removeMissesFieldUpdater);
+      return getRemoveMissesPrimary() + getRemoveMissesBackup() + getRemoveMissesNonOwner();
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache removals where keys were not found",
+         displayName = "Number of cache removal misses",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getRemoveMissesPrimary() {
+      return getRemoveMisses(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache removals where keys were not found",
+         displayName = "Number of cache removal misses",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getRemoveMissesBackup() {
+      return getRemoveMisses(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache removals where keys were not found",
+         displayName = "Number of cache removal misses",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getRemoveMissesNonOwner() {
+      return getRemoveMisses(counters.nonOwner);
+   }
+
+   private long getRemoveMisses(StripedCounters<StripeB> stripe) {
+      return stripe.get(StripeB.removeMissesFieldUpdater);
    }
 
    @ManagedAttribute(
@@ -584,7 +708,38 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
          measurementType = MeasurementType.TRENDSUP
    )
    public long getStores() {
-      return counters.getAll(StripeB.storesFieldUpdater);
+      return getStoresPrimary() + getStoresBackup() + getStoresNonOwner();
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute put operations",
+         displayName = "Number of cache puts",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getStoresPrimary() {
+      return getStores(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute put operations",
+         displayName = "Number of cache puts",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getStoresBackup() {
+      return getStores(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Number of cache attribute put operations",
+         displayName = "Number of cache puts",
+         measurementType = MeasurementType.TRENDSUP
+   )
+   public long getStoresNonOwner() {
+      return getStores(counters.nonOwner);
+   }
+
+   private long getStores(StripedCounters<StripeB> stripe) {
+      return stripe.get(StripeB.storesFieldUpdater);
    }
 
    @ManagedAttribute(
@@ -612,6 +767,43 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
    }
 
    @ManagedAttribute(
+         description = "Percentage hit/(hit+miss) ratio for the cache",
+         displayName = "Hit ratio",
+         units = Units.PERCENTAGE
+   )
+   public double getHitRatioPrimary() {
+      return getHitRatio(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Percentage hit/(hit+miss) ratio for the cache",
+         displayName = "Hit ratio",
+         units = Units.PERCENTAGE
+   )
+   public double getHitRatioBackup() {
+      return getHitRatio(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Percentage hit/(hit+miss) ratio for the cache",
+         displayName = "Hit ratio",
+         units = Units.PERCENTAGE
+   )
+   public double getHitRatioNonOwner() {
+      return getHitRatio(counters.nonOwner);
+   }
+
+   private double getHitRatio(StripedCounters<StripeB> stripe) {
+      long hitsL = stripe.get(StripeB.hitsFieldUpdater);
+      double total = hitsL + stripe.get(StripeB.missesFieldUpdater);
+      // The reason for <= is that equality checks
+      // should be avoided for floating point numbers.
+      if (total <= 0)
+         return 0;
+      return (hitsL / total);
+   }
+
+   @ManagedAttribute(
          description = "Read/writes ratio for the cache",
          displayName = "Read/write ratio",
          units = Units.PERCENTAGE
@@ -621,6 +813,40 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
       if (sum == 0)
          return 0;
       return (double) (counters.getAll(StripeB.hitsFieldUpdater) + counters.getAll(StripeB.missesFieldUpdater)) / (double) sum;
+   }
+
+   @ManagedAttribute(
+         description = "Read/writes ratio for the cache",
+         displayName = "Read/write ratio",
+         units = Units.PERCENTAGE
+   )
+   public double getReadWriteRatioPrimary() {
+      return getReadWriteRatio(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Read/writes ratio for the cache",
+         displayName = "Read/write ratio",
+         units = Units.PERCENTAGE
+   )
+   public double getReadWriteRatioBackup() {
+      return getReadWriteRatio(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Read/writes ratio for the cache",
+         displayName = "Read/write ratio",
+         units = Units.PERCENTAGE
+   )
+   public double getReadWriteRatioNonOwner() {
+      return getReadWriteRatio(counters.nonOwner);
+   }
+
+   private double getReadWriteRatio(StripedCounters<StripeB> stripe) {
+      long sum = stripe.get(StripeB.storesFieldUpdater);
+      if (sum == 0)
+         return 0;
+      return (double) (stripe.get(StripeB.hitsFieldUpdater) + stripe.get(StripeB.missesFieldUpdater)) / (double) sum;
    }
 
    @ManagedAttribute(
@@ -637,6 +863,40 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
    }
 
    @ManagedAttribute(
+         description = "Average number of milliseconds for a read operation on the cache",
+         displayName = "Average read time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageReadTimePrimary() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageTimeNanos(counters.primaryOwner));
+   }
+
+   @ManagedAttribute(
+         description = "Average number of milliseconds for a read operation on the cache",
+         displayName = "Average read time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageReadTimeBackup() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageTimeNanos(counters.backupOwner));
+   }
+
+   @ManagedAttribute(
+         description = "Average number of milliseconds for a read operation on the cache",
+         displayName = "Average read time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageReadTimeNonOwner() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageTimeNanos(counters.nonOwner));
+   }
+
+   private long getAverageTimeNanos(StripedCounters<StripeB> stripe) {
+      long total = stripe.get(StripeB.hitsFieldUpdater) + stripe.get(StripeB.missesFieldUpdater);
+      if (total == 0)
+         return 0;
+      return (stripe.get(StripeB.hitTimesFieldUpdater) + stripe.get(StripeB.missTimesFieldUpdater)) / total;
+   }
+
+   @ManagedAttribute(
          description = "Average number of nanoseconds for a read operation on the cache",
          displayName = "Average read time",
          units = Units.NANOSECONDS
@@ -646,6 +906,33 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
       if (total == 0)
          return 0;
       return (counters.getAll(StripeB.hitTimesFieldUpdater) + counters.getAll(StripeB.missTimesFieldUpdater)) / total;
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a read operation on the cache",
+         displayName = "Average read time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageReadTimeNanosPrimary() {
+      return getAverageTimeNanos(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a read operation on the cache",
+         displayName = "Average read time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageReadTimeNanosBackup() {
+      return getAverageTimeNanos(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a read operation on the cache",
+         displayName = "Average read time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageReadTimeNanosNonOwner() {
+      return getAverageTimeNanos(counters.nonOwner);
    }
 
    @ManagedAttribute(
@@ -661,6 +948,40 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
    }
 
    @ManagedAttribute(
+         description = "Average number of milliseconds for a write operation in the cache",
+         displayName = "Average write time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageWriteTimePrimary() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageWriteTimeNanos(counters.primaryOwner));
+   }
+
+   @ManagedAttribute(
+         description = "Average number of milliseconds for a write operation in the cache",
+         displayName = "Average write time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageWriteTimeBackup() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageWriteTimeNanos(counters.backupOwner));
+   }
+
+   @ManagedAttribute(
+         description = "Average number of milliseconds for a write operation in the cache",
+         displayName = "Average write time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageWriteTimeNonOwner() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageWriteTimeNanos(counters.nonOwner));
+   }
+
+   private long getAverageWriteTimeNanos(StripedCounters<StripeB> stripe) {
+      long sum = stripe.get(StripeB.storesFieldUpdater);
+      if (sum == 0)
+         return 0;
+      return stripe.get(StripeB.storeTimesFieldUpdater) / sum;
+   }
+
+   @ManagedAttribute(
          description = "Average number of nanoseconds for a write operation in the cache",
          displayName = "Average write time",
          units = Units.NANOSECONDS
@@ -670,6 +991,33 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
       if (sum == 0)
          return 0;
       return counters.getAll(StripeB.storeTimesFieldUpdater) / sum;
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a write operation in the cache",
+         displayName = "Average write time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageWriteTimeNanosPrimary() {
+      return getAverageWriteTimeNanos(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a write operation in the cache",
+         displayName = "Average write time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageWriteTimeNanosBackup() {
+      return getAverageWriteTimeNanos(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a write operation in the cache",
+         displayName = "Average write time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageWriteTimeNanosNonOwner() {
+      return getAverageWriteTimeNanos(counters.nonOwner);
    }
 
    @ManagedAttribute(
@@ -685,6 +1033,40 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
    }
 
    @ManagedAttribute(
+         description = "Average number of milliseconds for a remove operation in the cache",
+         displayName = "Average remove time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageRemoveTimePrimary() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageRemoveTimeNanos(counters.primaryOwner));
+   }
+
+   @ManagedAttribute(
+         description = "Average number of milliseconds for a remove operation in the cache",
+         displayName = "Average remove time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageRemoveTimeBackup() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageRemoveTimeNanos(counters.backupOwner));
+   }
+
+   @ManagedAttribute(
+         description = "Average number of milliseconds for a remove operation in the cache",
+         displayName = "Average remove time",
+         units = Units.MILLISECONDS
+   )
+   public long getAverageRemoveTimeNonOwner() {
+      return TimeUnit.NANOSECONDS.toMillis(getAverageRemoveTimeNanos(counters.nonOwner));
+   }
+
+   private long getAverageRemoveTimeNanos(StripedCounters<StripeB> stripe) {
+      long removes = getRemoveHits(stripe);
+      if (removes == 0)
+         return 0;
+      return stripe.get(StripeB.removeTimesFieldUpdater) / removes;
+   }
+
+   @ManagedAttribute(
          description = "Average number of nanoseconds for a remove operation in the cache",
          displayName = "Average remove time",
          units = Units.NANOSECONDS
@@ -694,6 +1076,33 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
       if (removes == 0)
          return 0;
       return counters.getAll(StripeB.removeTimesFieldUpdater) / removes;
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a remove operation in the cache",
+         displayName = "Average remove time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageRemoveTimeNanosPrimary() {
+      return getAverageRemoveTimeNanos(counters.primaryOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a remove operation in the cache",
+         displayName = "Average remove time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageRemoveTimeNanosBackup() {
+      return getAverageRemoveTimeNanos(counters.backupOwner);
+   }
+
+   @ManagedAttribute(
+         description = "Average number of nanoseconds for a remove operation in the cache",
+         displayName = "Average remove time",
+         units = Units.NANOSECONDS
+   )
+   public long getAverageRemoveTimeNanosNonOwner() {
+      return getAverageRemoveTimeNanos(counters.nonOwner);
    }
 
    @ManagedAttribute(
@@ -878,20 +1287,16 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
 
    @Override
    public void resetStatistics() {
-      // noinspection unchecked
-      AtomicLongFieldUpdater<StripeB>[] resets = (AtomicLongFieldUpdater<StripeB>[]) new Object[]{
-            StripeB.evictionsFieldUpdater,
-            StripeB.missesFieldUpdater,
-            StripeB.storesFieldUpdater,
-            StripeB.evictionsFieldUpdater,
-            StripeB.hitTimesFieldUpdater,
-            StripeB.missTimesFieldUpdater,
-            StripeB.storeTimesFieldUpdater,
-            StripeB.removeHitsFieldUpdater,
-            StripeB.removeTimesFieldUpdater,
-            StripeB.removeMissesFieldUpdater,
-      };
-      counters.reset(resets);
+      counters.reset(StripeB.hitsFieldUpdater);
+      counters.reset(StripeB.missesFieldUpdater);
+      counters.reset(StripeB.storesFieldUpdater);
+      counters.reset(StripeB.evictionsFieldUpdater);
+      counters.reset(StripeB.hitTimesFieldUpdater);
+      counters.reset(StripeB.missTimesFieldUpdater);
+      counters.reset(StripeB.storeTimesFieldUpdater);
+      counters.reset(StripeB.removeHitsFieldUpdater);
+      counters.reset(StripeB.removeTimesFieldUpdater);
+      counters.reset(StripeB.removeMissesFieldUpdater);
       resetNanoseconds.set(timeService.time());
 
       //todo [anistor] how do we reset Micrometer metrics ?
@@ -956,8 +1361,40 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
       private final StripedCounters<StripeB> primaryOwner = new StripedCounters<>(StripeC::new);
       private final StripedCounters<StripeB> backupOwner = new StripedCounters<>(StripeC::new);
       private final StripedCounters<StripeB> nonOwner = new StripedCounters<>(StripeC::new);
+      private DistributionManager dm;
+
+      public void initialize(DistributionManager dm) {
+         this.dm = dm;
+      }
 
       private StripedCounters<StripeB> getStripedCounter(InvocationContext ctx) {
+         // If distribution is null the cache is not clustered.
+         // If the context is null, it is coming from the stats cache doing a local read.
+         if (dm == null || ctx == null) return primaryOwner;
+
+         // No entries looked.
+         // This happens when this node is neither owner nor backup.
+         if (ctx.lookedUpEntriesCount() == 0) {
+            System.out.println("no-owner operation");
+            return nonOwner;
+         }
+
+         LocalizedCacheTopology lct = dm.getCacheTopology();
+         for (Entry<Object, CacheEntry> entry : ctx.getLookedUpEntries().entrySet()) {
+            Object k = entry.getKey();
+            CacheEntry v = entry.getValue();
+            DistributionInfo di = lct.getDistribution(k);
+            if (!di.isPrimary()) {
+               boolean backup = di.isWriteBackup();
+               System.out.printf("%s -> %s, is backup? %b%n", k, v, backup);
+               return backup
+                     ? backupOwner
+                     : nonOwner;
+            }
+
+            System.out.printf("%s -> %s, primary owner%n", k, v);
+         }
+
          return primaryOwner;
       }
 
@@ -965,16 +1402,14 @@ public final class CacheMgmtInterceptor extends JmxStatsCommandInterceptor imple
          return primaryOwner.get(updater) + backupOwner.get(updater) + nonOwner.get(updater);
       }
 
-      public void reset(AtomicLongFieldUpdater<StripeB>[] updaters) {
+      public void reset(AtomicLongFieldUpdater<StripeB> updaters) {
          reset(primaryOwner, updaters);
          reset(backupOwner, updaters);
          reset(nonOwner, updaters);
       }
 
-      public void reset(StripedCounters<StripeB> stripe, AtomicLongFieldUpdater<StripeB>[] updaters) {
-         for (AtomicLongFieldUpdater<StripeB> updater : updaters) {
-            stripe.reset(updater);
-         }
+      public void reset(StripedCounters<StripeB> stripe, AtomicLongFieldUpdater<StripeB> updater) {
+         stripe.reset(updater);
       }
    }
 }
