@@ -43,7 +43,7 @@ public class TasksResource implements ResourceHandler {
 
    @Override
    public Invocations getInvocations() {
-      return new Invocations.Builder()
+      return new Invocations.Builder("tasks", "REST endpoint to manage tasks.")
             .invocation().methods(GET).path("/v2/tasks/").handleWith(this::listTasks)
             .invocation().methods(PUT, POST).path("/v2/tasks/{taskName}").handleWith(this::createScriptTask)
             .invocation().methods(POST).path("/v2/tasks/{taskName}").withAction("exec").handleWith(this::runTask)

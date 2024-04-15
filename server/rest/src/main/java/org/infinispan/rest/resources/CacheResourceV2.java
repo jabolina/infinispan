@@ -191,7 +191,7 @@ public class CacheResourceV2 extends BaseCacheResource implements ResourceHandle
 
    @Override
    public Invocations getInvocations() {
-      return new Invocations.Builder()
+      return new Invocations.Builder("cache", "REST resource to manage caches.")
             // Key related operations
             .invocation().methods(PUT, POST).path("/v2/caches/{cacheName}/{cacheKey}").handleWith(this::putValueToCache)
             .invocation().methods(GET, HEAD).path("/v2/caches/{cacheName}/{cacheKey}").handleWith(this::getCacheValue)

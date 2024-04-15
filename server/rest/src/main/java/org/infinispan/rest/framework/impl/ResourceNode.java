@@ -8,11 +8,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 
 import org.infinispan.rest.framework.Invocation;
+import org.infinispan.rest.framework.InvocationRegistry;
 import org.infinispan.rest.framework.LookupResult;
 import org.infinispan.rest.framework.LookupResult.Status;
 import org.infinispan.rest.framework.Method;
+import org.infinispan.rest.framework.PathItem;
 import org.infinispan.rest.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -21,7 +24,7 @@ import org.infinispan.util.logging.LogFactory;
  *
  * @since 10.0
  */
-class ResourceNode {
+class ResourceNode implements InvocationRegistry {
 
    private final static Log logger = LogFactory.getLog(ResourceNode.class, Log.class);
    public static final StringPathItem WILDCARD_PATH = new StringPathItem("*");
@@ -61,7 +64,8 @@ class ResourceNode {
       return null;
    }
 
-   void insertPath(Invocation invocation, List<PathItem> path) {
+   @Override
+   public void insertPath(Invocation invocation, List<PathItem> path) {
       insertPathInternal(this, invocation, path);
    }
 
@@ -69,6 +73,12 @@ class ResourceNode {
       StringBuilder stringBuilder = new StringBuilder();
       dumpTree(stringBuilder, this, 0);
       return stringBuilder.toString();
+   }
+
+   @Override
+   public void traverse(BiConsumer<PathItem, Invocation> consumer) {
+      invocationTable.forEach((k, v) -> consumer.accept(pathItem, v));
+      children.forEach((k, v) -> v.traverse(consumer));
    }
 
    @Override
@@ -150,7 +160,8 @@ class ResourceNode {
       return null;
    }
 
-   LookupResult find(Method method, List<PathItem> path, String action) {
+   @Override
+   public LookupResult find(Method method, List<PathItem> path, String action) {
       ResourceNode current = this;
       Map<String, String> variables = new HashMap<>();
       boolean root = true;

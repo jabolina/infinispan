@@ -8,6 +8,7 @@ import java.util.function.Function;
 
 import org.infinispan.rest.framework.Invocation;
 import org.infinispan.rest.framework.Method;
+import org.infinispan.rest.framework.ResourceDescription;
 import org.infinispan.rest.framework.RestRequest;
 import org.infinispan.rest.framework.RestResponse;
 import org.infinispan.security.AuditContext;
@@ -27,9 +28,13 @@ public class InvocationImpl implements Invocation {
    private final boolean deprecated;
    private final AuthorizationPermission permission;
    private final AuditContext auditContext;
+   private final ResourceDescription resourceDescription;
 
-   private InvocationImpl(Set<Method> methods, Set<String> paths, Function<RestRequest,
-         CompletionStage<RestResponse>> handler, String action, String name, boolean anonymous, AuthorizationPermission permission, boolean deprecated, AuditContext auditContext) {
+   private InvocationImpl(ResourceDescription resource, Set<Method> methods, Set<String> paths,
+                          Function<RestRequest, CompletionStage<RestResponse>> handler, String action,
+                          String name, boolean anonymous, AuthorizationPermission permission, boolean deprecated,
+                          AuditContext auditContext) {
+      this.resourceDescription = resource;
       this.methods = methods;
       this.paths = paths;
       this.handler = handler;
@@ -79,6 +84,11 @@ public class InvocationImpl implements Invocation {
    @Override
    public AuditContext auditContext() {
       return auditContext;
+   }
+
+   @Override
+   public ResourceDescription resourceGroup() {
+      return resourceDescription;
    }
 
    @Override
@@ -167,7 +177,7 @@ public class InvocationImpl implements Invocation {
       }
 
       InvocationImpl build() {
-         return new InvocationImpl(methods, paths, handler, action, name, anonymous, permission, deprecated, auditContext);
+         return new InvocationImpl(parent.description(), methods, paths, handler, action, name, anonymous, permission, deprecated, auditContext);
       }
    }
 
