@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.infinispan.commons.util.IntSet;
 import org.infinispan.commons.util.IntSets;
@@ -44,13 +46,9 @@ public class DefaultConsistentHashUnitTest extends AbstractConsistentHashTest {
       List<Address> ch1 = List.of(new TestAddress(0, "TA"), new TestAddress(1, "TA"), new TestAddress(2, "TA"));
       List<Address> ch2 = List.of(new TestAddress(0, "TA"), new TestAddress(2, "TA"), new TestAddress(1, "TA"));
 
-      Map<Address, Float> capacityFactors = new HashMap<>();
-      capacityFactors.put(ch1.get(0), 1.0f);
-      capacityFactors.put(ch1.get(1), 1.0f);
-      capacityFactors.put(ch1.get(2), 1.0f);
 
-      DefaultConsistentHash dch1 = chf.create(2, 256, ch1, capacityFactors);
-      DefaultConsistentHash dch2 = chf.create(2, 256, ch2, capacityFactors);
+      DefaultConsistentHash dch1 = chf.create(2, 256, ch1, capacityFactors(ch1));
+      DefaultConsistentHash dch2 = chf.create(2, 256, ch2, capacityFactors(ch2));
 
       assertIsEquivalent(dch1, dch2);
    }
@@ -61,17 +59,11 @@ public class DefaultConsistentHashUnitTest extends AbstractConsistentHashTest {
       List<Address> twoMembers = List.of(new TestAddress(0, "TA"), new TestAddress(1, "TA"));
       List<Address> threeMembers = List.of(new TestAddress(0, "TA"), new TestAddress(1, "TA"), new TestAddress(2, "TA"));
 
-      Map<Address, Float> capacityFactors = new HashMap<>();
-      capacityFactors.put(twoMembers.get(0), 1.0f);
-      capacityFactors.put(twoMembers.get(1), 1.0f);
-      capacityFactors.put(threeMembers.get(2), 1.0f);
 
-      DefaultConsistentHash dch1 = chf.create(2, 256, twoMembers, capacityFactors);
-      DefaultConsistentHash dch2 = chf.create(2, 256, threeMembers, capacityFactors);
+      DefaultConsistentHash dch1 = chf.create(2, 256, twoMembers, capacityFactors(twoMembers));
+      DefaultConsistentHash dch2 = chf.create(2, 256, threeMembers, capacityFactors(threeMembers));
 
-      capacityFactors.remove(threeMembers.get(2));
-      DefaultConsistentHash after = rebalanceIteration(chf, dch2, 0, 1, twoMembers, capacityFactors);
-
+      DefaultConsistentHash after = rebalanceIteration(chf, dch2, 0, 1, twoMembers, capacityFactors(twoMembers));
       assertIsEquivalent(dch1, after);
    }
 
@@ -105,18 +97,65 @@ public class DefaultConsistentHashUnitTest extends AbstractConsistentHashTest {
       capacityFactors.put(threeMembers.get(2), 1.0f);
 
       DefaultConsistentHash dch1 = chf.create(2, 256, twoMembers, capacityFactors);
-      DefaultConsistentHash dch2 = chf.create(2, 256, threeMembers, capacityFactors);
+      DefaultConsistentHash dch2 = transition(chf, threeMembers);
 
-      capacityFactors.remove(threeMembers.get(2));
-      DefaultConsistentHash left = rebalanceIteration(chf, dch2, 0, 1, twoMembers, capacityFactors);
+      DefaultConsistentHash left = rebalanceIteration(chf, dch2, 0, 1, twoMembers, capacityFactors(twoMembers));
 
       // FIXME: Should be equivalent.
       // assertIsEquivalent(dch1, left);
 
-      capacityFactors.put(threeMembers.get(2), 1.0f);
       DefaultConsistentHash joined = rebalanceIteration(chf, left, 1, 0, threeMembers, capacityFactors);
-
       assertIsEquivalent(dch2, joined);
+   }
+
+   public void testHashEquivalenceAfterTransition() {
+      ConsistentHashFactory<DefaultConsistentHash> chf = new DefaultConsistentHashFactory();
+
+      List<Address> threeMembers = List.of(new TestAddress(0, "TA"), new TestAddress(1, "TA"), new TestAddress(2, "TA"));
+
+      Map<Address, Float> capacityFactors = new HashMap<>();
+      capacityFactors.put(threeMembers.get(0), 1.0f);
+      capacityFactors.put(threeMembers.get(1), 1.0f);
+      capacityFactors.put(threeMembers.get(2), 1.0f);
+
+      DefaultConsistentHash complete = chf.create(2, 256, threeMembers, capacityFactors);
+      DefaultConsistentHash other = transition(chf, threeMembers);
+
+      assertIsEquivalent(complete, other);
+   }
+
+   public void testEquivalenceAfterTransitions() {
+      ConsistentHashFactory<DefaultConsistentHash> chf = new DefaultConsistentHashFactory();
+
+      List<Address> threeMembers = List.of(new TestAddress(0, "TA"), new TestAddress(1, "TA"), new TestAddress(2, "TA"));
+
+      DefaultConsistentHash first = transition(chf, threeMembers);
+      DefaultConsistentHash second = transition(chf, threeMembers);
+
+      assertIsEquivalent(first, second);
+   }
+
+   public void testRestartEquivalenceAfterTransitions() {
+      ConsistentHashFactory<DefaultConsistentHash> chf = new DefaultConsistentHashFactory();
+
+      List<Address> threeMembers = List.of(new TestAddress(0, "TA"), new TestAddress(1, "TA"), new TestAddress(2, "TA"));
+
+      DefaultConsistentHash original = transition(chf, threeMembers);
+      DefaultConsistentHash left = rebalanceIteration(chf, original, 0, 1, threeMembers.subList(0, 2), capacityFactors(threeMembers.subList(0, 2)));
+      DefaultConsistentHash restarted = rebalanceIteration(chf, left, 1, 0, threeMembers, capacityFactors(threeMembers));
+
+      assertIsEquivalent(original, restarted);
+   }
+
+   private DefaultConsistentHash transition(ConsistentHashFactory<DefaultConsistentHash> chf, List<Address> threeMembers) {
+      DefaultConsistentHash other = chf.create(2, 256, threeMembers.subList(0, 1), capacityFactors(threeMembers.subList(0, 1)));
+      other = rebalanceIteration(chf, other, 1, 0, threeMembers.subList(0, 2), capacityFactors(threeMembers.subList(0, 2)));
+      return rebalanceIteration(chf, other, 1, 0, threeMembers, capacityFactors(threeMembers));
+   }
+
+   private Map<Address, Float> capacityFactors(List<Address> members) {
+      return members.stream()
+            .collect(Collectors.toMap(Function.identity(), ignore -> 1.0f));
    }
 
    private void assertIsEquivalent(ConsistentHash oldConsistentHash, ConsistentHash newConsistentHash) {
