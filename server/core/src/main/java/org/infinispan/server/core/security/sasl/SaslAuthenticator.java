@@ -91,7 +91,5 @@ public interface SaslAuthenticator {
       return sap.createSaslServer(configuration, principals, mech, protocol);
    }
 
-   default SaslClient createSaslClient() {
-      throw new UnsupportedOperationException();
-   }
+   SaslClient createSaslClient();
 }

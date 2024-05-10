@@ -189,6 +189,11 @@ public class ServerConfigurationBuilder implements Builder<ServerConfiguration> 
             public SaslConfiguration configuration() {
                return configuration.saslConfiguration();
             }
+
+            @Override
+            public String mechanism() {
+               return configuration.saslConfiguration().mechanisms().stream().findFirst().orElseThrow();
+            }
          };
       }
    }

@@ -102,11 +102,12 @@ public class ElytronSASLAuthenticator implements SaslAuthenticator {
       builder.setScheduledExecutorService(timeoutExecutor);
       saslAuthenticationFactory = builder.build();
 
+      // FIXME: Set client side configuration
       SecurityProviderSaslClientFactory securityProviderSaslClientFactory = new SecurityProviderSaslClientFactory(() -> providers);
 
 
       AuthenticationConfiguration.empty()
-            .setSaslMechanismSelector(SaslMechanismSelector.NONE.addMechanisms())
+            .setSaslMechanismSelector(SaslMechanismSelector.NONE.addMechanisms());
    }
 
    @Override
@@ -132,7 +133,8 @@ public class ElytronSASLAuthenticator implements SaslAuthenticator {
             WildFlyElytronSaslGssapiProvider.getInstance(),
             WildFlyElytronSaslGs2Provider.getInstance()
       };
+      // FIXME: need to create correct instance.
       SecurityProviderSaslClientFactory securityProviderSaslClientFactory = new SecurityProviderSaslClientFactory(() -> providers);
-      return SaslAuthenticator.super.createSaslClient();
+      return null;
    }
 }

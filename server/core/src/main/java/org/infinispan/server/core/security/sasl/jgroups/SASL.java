@@ -181,7 +181,10 @@ public class SASL extends Protocol {
          SaslProtocolHandler handler = null;
 
          try {
+            // FIXME: Need to handle the client side.
             handler = new SaslProtocolClientHandler(context);
+         } finally {
+
          }
       }
       return super.down(msg);
