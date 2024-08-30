@@ -9,13 +9,16 @@ import static org.infinispan.client.hotrod.logging.Log.HOTROD;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.infinispan.client.hotrod.ProtocolVersion;
 import org.infinispan.client.hotrod.configuration.ClientIntelligence;
@@ -44,8 +47,10 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
    public static final String NAME = "header-decoder";
    private final Configuration configuration;
    private final OperationDispatcher dispatcher;
-   // operations may be registered in any thread, and are removed in event loop thread
-   private final ConcurrentMap<Long, HotRodOperation<?>> incomplete = new ConcurrentHashMap<>();
+   // This is a ConcurrentHashMap solely for methods reading incomplete. Writing to the map is done solely
+   // in the event loop
+   private final Map<Long, HotRodOperation<?>> incomplete = new ConcurrentHashMap<>();
+   private final Map<Long, ScheduledFuture<?>> timeouts = new HashMap<>();
    private final List<byte[]> listeners = new ArrayList<>();
    // Marshaller is shared for the entire connection and swaps out DataFormat and ByteBuf per request
    private final ByteBufCacheUnmarshaller unmarshaller;
@@ -96,10 +101,15 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
       if (closing) {
          throw HOTROD.noMoreOperationsAllowed();
       }
-      HotRodOperation<?> prev = incomplete.put(messageId, operation);
+      Long messageIdLong = messageId;
+      HotRodOperation<?> prev = incomplete.put(messageIdLong, operation);
       assert prev == null;
-      // TODO: need to make the timeout part
-//      operation.scheduleTimeout(channel);
+      ScheduledFuture<?> future = channel.eventLoop().schedule(() -> {
+               timeouts.remove(messageIdLong);
+               dispatcher.handleResponse(operation, channel, null,
+                     new SocketTimeoutException(this + " timed out after " + configuration.socketTimeout() + " ms"));
+            }, configuration.socketTimeout(), TimeUnit.MILLISECONDS);
+      timeouts.put(messageIdLong, future);
       return messageId;
    }
 
@@ -109,6 +119,15 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
       channel = ctx.channel();
       log.tracef("Decoder %s has Channel %s registered", this, channel);
       codec = configuration.version().getCodec();
+   }
+
+   private HotRodOperation<?> removeOperation(Long messageId) {
+      HotRodOperation<?> op = incomplete.remove(messageId);
+      ScheduledFuture<?> future = timeouts.remove(messageId);
+      if (future != null) {
+         future.cancel(false);
+      }
+      return op;
    }
 
    @Override
@@ -141,7 +160,7 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
                      return;
                }
                // we can remove the operation at this point since we'll read no more in this state
-               operation = incomplete.remove(receivedMessageId);
+               operation = removeOperation(receivedMessageId);
                if (operation == null) {
                   throw HOTROD.unknownMessageId(receivedMessageId);
                }
