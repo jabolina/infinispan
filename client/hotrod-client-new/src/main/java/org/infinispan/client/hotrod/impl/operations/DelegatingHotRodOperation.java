@@ -89,7 +89,7 @@ public abstract class DelegatingHotRodOperation<T> extends HotRodOperation<T> {
    }
 
    @Override
-   protected void reset() {
+   public void reset() {
       delegate.reset();
    }
 }

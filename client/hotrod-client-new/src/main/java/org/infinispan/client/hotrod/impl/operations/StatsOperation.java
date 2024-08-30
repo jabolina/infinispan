@@ -48,4 +48,10 @@ public class StatsOperation extends AbstractCacheOperation<ServerStatistics> {
    public short responseOpCode() {
       return STATS_RESPONSE;
    }
+
+   @Override
+   public void reset() {
+      numStats = -1;
+      result = null;
+   }
 }

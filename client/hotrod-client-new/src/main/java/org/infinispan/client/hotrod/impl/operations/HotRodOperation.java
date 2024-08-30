@@ -66,5 +66,5 @@ public abstract class HotRodOperation<T> extends CompletableFuture<T> implements
 
    protected void addParams(StringBuilder sb) { }
 
-   protected void reset() { }
+   public void reset() { }
 }

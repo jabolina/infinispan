@@ -39,7 +39,7 @@ public class GetAllOperation<K, V> extends AbstractCacheOperation<Map<K, V>> {
    }
 
    @Override
-   protected void reset() {
+   public void reset() {
       size = -1;
       result = null;
    }

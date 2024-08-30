@@ -604,6 +604,7 @@ public class OperationDispatcher {
             log.tracef(e, "Exception encountered in %s. Retry %d out of %d", this, retryAttempt, maxRetries);
          }
          retryCounter.incrementAndGet();
+         op.reset();
          execute(op, op.getFailedServers());
       } else {
          HOTROD.exceptionAndNoRetriesLeft(retryAttempt, maxRetries, e);

@@ -62,7 +62,7 @@ public class GetKeyMultimapOperation<V> extends AbstractMultimapKeyOperation<Col
    }
 
    @Override
-   protected void reset() {
+   public void reset() {
       result = null;
    }
 }

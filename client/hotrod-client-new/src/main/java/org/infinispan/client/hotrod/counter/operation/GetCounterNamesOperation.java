@@ -28,7 +28,7 @@ public class GetCounterNamesOperation extends AbstractCacheOperation<Collection<
    }
 
    @Override
-   protected void reset() {
+   public void reset() {
       names = null;
    }
 
