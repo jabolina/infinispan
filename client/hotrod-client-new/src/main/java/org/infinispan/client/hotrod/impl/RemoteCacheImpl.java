@@ -32,11 +32,15 @@ import org.infinispan.client.hotrod.ServerStatistics;
 import org.infinispan.client.hotrod.StreamingRemoteCache;
 import org.infinispan.client.hotrod.configuration.Configuration;
 import org.infinispan.client.hotrod.configuration.StatisticsConfiguration;
+import org.infinispan.client.hotrod.event.impl.ClientEventDispatcher;
+import org.infinispan.client.hotrod.event.impl.ClientListenerNotifier;
 import org.infinispan.client.hotrod.exceptions.RemoteCacheManagerNotStartedException;
 import org.infinispan.client.hotrod.filter.Filters;
 import org.infinispan.client.hotrod.impl.iteration.RemotePublisher;
+import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.ClearOperation;
+import org.infinispan.client.hotrod.impl.operations.ClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.GetWithMetadataOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.PingResponse;
@@ -75,6 +79,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    private final byte[] nameBytes;
    private final RemoteCacheManager remoteCacheManager;
    private final CacheOperationsFactory operationsFactory;
+   private final ClientListenerNotifier clientListenerNotifier;
    private final int flagInt;
    private int batchSize;
    private volatile boolean isObjectStorage;
@@ -98,6 +103,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.dataFormat = DataFormat.builder().build();
       this.clientStatistics = new ClientStatistics(rcm.getConfiguration().statistics().enabled(), timeService, nearCacheService);
       this.operationsFactory = new CacheOperationsFactory(this);
+      this.clientListenerNotifier = rcm.getListenerNotifier();
       this.flagInt = rcm.getConfiguration().forceReturnValues() ? Flag.FORCE_RETURN_VALUE.getFlagInt() : 0;
    }
 
@@ -111,6 +117,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.dataFormat = DataFormat.builder().build();
       this.clientStatistics = clientStatistics;
       this.operationsFactory = new CacheOperationsFactory(this);
+      this.clientListenerNotifier = rcm.getListenerNotifier();
       this.flagInt = rcm.getConfiguration().forceReturnValues() ? Flag.FORCE_RETURN_VALUE.getFlagInt() : 0;
    }
 
@@ -125,6 +132,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.clientStatistics = other.clientStatistics;
       this.operationsFactory = new CacheOperationsFactory(this);
       this.flagInt = flagInt;
+      this.clientListenerNotifier = other.clientListenerNotifier;
 
       this.batchSize = other.batchSize;
       this.dispatcher = other.dispatcher;
@@ -234,8 +242,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       if (segments != null && segments.isEmpty()) {
          return Flowable.empty();
       }
-      byte[][] params = marshallParams(filterConverterParams);
-      return new RemotePublisher<>(operationsFactory, dispatcher, filterConverterFactory, params, segments,
+      return new RemotePublisher<>(operationsFactory, dispatcher, filterConverterFactory, filterConverterParams, segments,
             batchSize, false, dataFormat);
    }
 
@@ -587,23 +594,32 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
 
    @Override
    public void addClientListener(Object listener) {
-      assertRemoteCacheManagerIsStarted();
-      throw new UnsupportedOperationException();
-//      AddClientListenerOperation op = operationsFactory.newAddClientListenerOperation(listener, dataFormat);
-//      // no timeout, see below
-//      await(op.execute());
+      addClientListener(listener, null, null);
    }
 
    @Override
    public void addClientListener(Object listener, Object[] filterFactoryParams, Object[] converterFactoryParams) {
       assertRemoteCacheManagerIsStarted();
-      byte[][] marshalledFilterParams = marshallParams(filterFactoryParams);
-      byte[][] marshalledConverterParams = marshallParams(converterFactoryParams);
-      throw new UnsupportedOperationException();
-//      AddClientListenerOperation op = operationsFactory.newAddClientListenerOperation(
-//            listener, marshalledFilterParams, marshalledConverterParams, dataFormat);
-//      // No timeout: transferring initial state can take a while, socket timeout setting is not applicable here
-//      await(op.execute());
+      AddClientListenerOperation op = operationsFactory.newAddClientListenerOperation(listener, filterFactoryParams, converterFactoryParams);
+      // Must be registered before executing to ensure this is always ran on the event loop, thus guaranteeing
+      // events cannot be received until after this has been processed
+      var addStage = handleAddListenerOperation(op, this);
+      dispatcher.execute(op);
+      // We must wait on the stage to ensure the listeners are indeed registered fully before returning
+      await(addStage);
+   }
+
+   static CompletionStage<SocketAddress> handleAddListenerOperation(ClientListenerOperation op, InternalRemoteCache<?, ?> remoteCache) {
+      return op.thenApply(remoteCache.getDispatcher()::unresolvedAddressForChannel)
+            .whenComplete((sa, t) -> {
+         if (t != null) {
+            log.errorf("Error encountered trying to add listener %s", op.listener);
+         } else {
+            remoteCache.getListenerNotifier().addDispatcher(ClientEventDispatcher.create(op,
+                  sa, () -> {/* TODO s*/}, remoteCache));
+            remoteCache.getDispatcher().addListener(sa, op.listenerId);
+         }
+      });
    }
 
    @Override
@@ -611,24 +627,27 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       throw new UnsupportedOperationException("Adding a near cache listener to a RemoteCache is not supported!");
    }
 
-   private byte[][] marshallParams(Object[] params) {
-      if (params == null)
-         return org.infinispan.commons.util.Util.EMPTY_BYTE_ARRAY_ARRAY;
-
-      byte[][] marshalledParams = new byte[params.length][];
-      for (int i = 0; i < marshalledParams.length; i++) {
-         byte[] bytes = keyToBytes(params[i]);// should be small
-         marshalledParams[i] = bytes;
-      }
-
-      return marshalledParams;
-   }
-
    @Override
    public void removeClientListener(Object listener) {
       assertRemoteCacheManagerIsStarted();
-      await(dispatcher.executeOnSingleAddress(operationsFactory.newRemoveClientListenerOperation(listener),
-            dispatcher.getClientListenerNotifier().findAddressByListener(listener)));
+      byte[] listenerId = clientListenerNotifier.findListenerId(listener);
+      if (listenerId == null) {
+         return;
+      }
+      SocketAddress sa = clientListenerNotifier.findAddress(listenerId);
+      if (sa == null) {
+         return;
+      }
+      HotRodOperation<Void> op = operationsFactory.newRemoveClientListenerOperation(listener);
+      // By registering this here, we are guaranteed this will be ran on the event loop for this listener
+      CompletableFuture<Void> removalStage = op.thenAccept(___ -> {
+         clientListenerNotifier.removeClientListener(listenerId);
+         dispatcher.removeListener(sa, listenerId);
+      });
+      dispatcher.executeOnSingleAddress(op, sa);
+      // This is convoluted but to ensure the caller doesn't return until the listener is completely removed
+      // we have to wait on the other stage
+      await(removalStage);
    }
 
    @Override
@@ -665,6 +684,11 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public CacheOperationsFactory getCacheOperationsFactory() {
       return operationsFactory;
+   }
+
+   @Override
+   public ClientListenerNotifier getListenerNotifier() {
+      return clientListenerNotifier;
    }
 
    @Override

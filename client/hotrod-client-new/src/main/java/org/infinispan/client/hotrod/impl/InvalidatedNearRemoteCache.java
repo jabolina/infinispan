@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.infinispan.client.hotrod.MetadataValue;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
+import org.infinispan.client.hotrod.impl.operations.ClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.RetryAwareCompletionStage;
 import org.infinispan.client.hotrod.logging.Log;
@@ -272,9 +273,13 @@ public class InvalidatedNearRemoteCache<K, V> extends DelegatingRemoteCache<K, V
 
    @Override
    public SocketAddress addNearCacheListener(Object listener, int bloomBits) {
-      HotRodOperation<SocketAddress> op = getCacheOperationsFactory().newAddNearCacheListenerOperation(listener,
+      ClientListenerOperation op = getCacheOperationsFactory().newAddNearCacheListenerOperation(listener,
             bloomBits);
+      // Must be registered before executing to ensure this is always ran on the event loop, thus guranteeing
+      // events cannot be received until after this has been processed
+      var addStage = RemoteCacheImpl.handleAddListenerOperation(op, this);
       // no timeout, see below
-      return Util.await(getDispatcher().execute(op));
+      getDispatcher().execute(op);
+      return Util.await(addStage);
    }
 }

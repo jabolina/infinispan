@@ -12,6 +12,7 @@ import org.infinispan.client.hotrod.MetadataValue;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.VersionedValue;
 import org.infinispan.client.hotrod.configuration.Configuration;
+import org.infinispan.client.hotrod.event.impl.ClientListenerNotifier;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.PingResponse;
 import org.infinispan.client.hotrod.impl.operations.RetryAwareCompletionStage;
@@ -90,4 +91,6 @@ public interface InternalRemoteCache<K, V> extends RemoteCache<K, V> {
    CompletionStage<Void> updateBloomFilter();
 
    CacheOperationsFactory getCacheOperationsFactory();
+
+   ClientListenerNotifier getListenerNotifier();
 }

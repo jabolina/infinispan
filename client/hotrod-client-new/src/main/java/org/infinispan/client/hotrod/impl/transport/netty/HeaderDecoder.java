@@ -219,10 +219,6 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
                   log.unableToReadEventFromServer(t, ctx.channel().remoteAddress());
                   throw t;
                }
-               // TODO: need to look at this again when timeouts are implemented
-               if (operation != null) {
-//                  ((AddClientListenerOperation) operation).postponeTimeout(ctx.channel());
-               }
                invokeEvent(cacheEvent.getListenerId(), cacheEvent);
                checkpoint(State.READ_MESSAGE_ID);
                break;

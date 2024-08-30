@@ -47,11 +47,11 @@ public class RemotePublisher<K, E> implements Publisher<Map.Entry<K, E>> {
    private final Set<SocketAddress> failedServers = ConcurrentHashMap.newKeySet();
 
    public RemotePublisher(CacheOperationsFactory operationsFactory, OperationDispatcher dispatcher, String filterConverterFactory,
-                          byte[][] filterParams, Set<Integer> segments, int batchSize, boolean metadata, DataFormat dataFormat) {
+                          Object[] filterParams, Set<Integer> segments, int batchSize, boolean metadata, DataFormat dataFormat) {
       this.operationsFactory = operationsFactory;
       this.dispatcher = dispatcher;
       this.filterConverterFactory = filterConverterFactory;
-      this.filterParams = filterParams;
+      this.filterParams = operationsFactory.marshallParams(filterParams);
       String cacheName = operationsFactory.getRemoteCache().getName();
       SegmentConsistentHash segmentConsistentHash = (SegmentConsistentHash) dispatcher.getConsistentHash(cacheName);
       if (segments == null) {

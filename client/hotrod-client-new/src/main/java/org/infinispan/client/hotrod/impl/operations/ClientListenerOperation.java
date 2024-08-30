@@ -2,7 +2,6 @@ package org.infinispan.client.hotrod.impl.operations;
 
 import static org.infinispan.client.hotrod.logging.Log.HOTROD;
 
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -11,7 +10,9 @@ import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.commons.util.ReflectionUtil;
 import org.infinispan.commons.util.Util;
 
-public abstract class ClientListenerOperation extends AbstractCacheOperation<SocketAddress> {
+import io.netty.channel.Channel;
+
+public abstract class ClientListenerOperation extends AbstractCacheOperation<Channel> {
    public final Object listener;
    public final byte[] listenerId;
 

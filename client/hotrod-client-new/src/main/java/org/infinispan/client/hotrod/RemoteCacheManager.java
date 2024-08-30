@@ -756,6 +756,10 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
       return asyncExecutorService;
    }
 
+   public ClientListenerNotifier getListenerNotifier() {
+      return listenerNotifier;
+   }
+
    private record RemoteCacheKey(String cacheName, boolean forceReturnValue) { }
 
    private record RemoteCacheHolder<K, V>(InternalRemoteCache<K, V> remoteCache, boolean forceReturnValue) { }

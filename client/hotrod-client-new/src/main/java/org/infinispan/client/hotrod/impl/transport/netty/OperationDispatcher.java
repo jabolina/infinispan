@@ -515,6 +515,28 @@ public class OperationDispatcher {
       }
    }
 
+   public void addListener(SocketAddress sa, byte[] listenerId) {
+      OperationChannel operationChannel = channelHandler.getChannelForAddress(sa);
+      if (operationChannel == null) {
+         throw new IllegalStateException("Channel is not running for address " + sa);
+      }
+      HeaderDecoder headerDecoder = (HeaderDecoder) operationChannel.getChannel().pipeline().get(HeaderDecoder.NAME);
+      headerDecoder.addListener(listenerId);
+   }
+
+   public void removeListener(SocketAddress sa, byte[] listenerId) {
+      OperationChannel operationChannel = channelHandler.getChannelForAddress(sa);
+      if (operationChannel == null) {
+         throw new IllegalStateException("Channel is not running for address " + sa);
+      }
+      HeaderDecoder headerDecoder = (HeaderDecoder) operationChannel.getChannel().pipeline().get(HeaderDecoder.NAME);
+      headerDecoder.removeListener(listenerId);
+   }
+
+   public SocketAddress unresolvedAddressForChannel(Channel c) {
+      return channelHandler.unresolvedAddressForChannel(c);
+   }
+
    static class RetryingHotRodOperation<T> extends DelegatingHotRodOperation<T> {
       private final Set<SocketAddress> failedServers;
       private int retryCount;

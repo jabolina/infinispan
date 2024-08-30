@@ -145,11 +145,34 @@ public class CacheOperationsFactory {
       return new UpdateBloomFilterOperation(remoteCache, bloomFilterBits);
    }
 
-   public HotRodOperation<SocketAddress> newAddNearCacheListenerOperation(Object listener, int bloomBits) {
+   public ClientListenerOperation newAddNearCacheListenerOperation(Object listener, int bloomBits) {
       return new AddBloomNearCacheClientListenerOperation(remoteCache, listener, bloomBits);
    }
 
    public <T> QueryOperation newQueryOperation(RemoteQuery<T> ts, boolean withHitCount) {
       return new QueryOperation(remoteCache, ts, withHitCount);
+   }
+
+   public AddClientListenerOperation newAddClientListenerOperation(Object listener) {
+      return newAddClientListenerOperation(listener, null, null);
+   }
+
+   public AddClientListenerOperation newAddClientListenerOperation(Object listener, Object[] filterFactoryParams,
+                                                                   Object[] converterFactoryParams) {
+      return new AddClientListenerOperation(remoteCache, listener, marshallParams(filterFactoryParams),
+            marshallParams(converterFactoryParams));
+   }
+
+   public byte[][] marshallParams(Object[] params) {
+      if (params == null)
+         return org.infinispan.commons.util.Util.EMPTY_BYTE_ARRAY_ARRAY;
+
+      byte[][] marshalledParams = new byte[params.length][];
+      for (int i = 0; i < marshalledParams.length; i++) {
+         byte[] bytes = remoteCache.getDataFormat().keyToBytes(params[i]);// should be small
+         marshalledParams[i] = bytes;
+      }
+
+      return marshalledParams;
    }
 }

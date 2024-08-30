@@ -1,7 +1,5 @@
 package org.infinispan.client.hotrod.impl.operations;
 
-import java.net.SocketAddress;
-
 import org.infinispan.client.hotrod.annotation.ClientListener;
 import org.infinispan.client.hotrod.event.impl.ClientEventDispatcher;
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
@@ -19,7 +17,6 @@ import io.netty.channel.Channel;
 public class AddClientListenerOperation extends ClientListenerOperation {
 
    // TODO: do we need to store it here?
-   private final byte[] listenerId;
    private final byte[][] filterFactoryParams;
    private final byte[][] converterFactoryParams;
 
@@ -28,8 +25,6 @@ public class AddClientListenerOperation extends ClientListenerOperation {
       super(remoteCache, listener);
       this.filterFactoryParams = filterFactoryParams;
       this.converterFactoryParams = converterFactoryParams;
-
-      this.listenerId = generateListenerId();
    }
 
 
@@ -47,9 +42,10 @@ public class AddClientListenerOperation extends ClientListenerOperation {
    }
 
    @Override
-   public SocketAddress createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec, CacheUnmarshaller unmarshaller) {
+   public Channel createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec,
+                                       CacheUnmarshaller unmarshaller) {
       if (HotRodConstants.isSuccess(status)) {
-         return decoder.getChannel().remoteAddress();
+         return decoder.getChannel();
       }
       return null;
    }

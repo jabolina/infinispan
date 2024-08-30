@@ -1,7 +1,5 @@
 package org.infinispan.client.hotrod.impl.operations;
 
-import java.net.SocketAddress;
-
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
@@ -30,8 +28,8 @@ public class AddBloomNearCacheClientListenerOperation extends ClientListenerOper
    }
 
    @Override
-   public SocketAddress createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec, CacheUnmarshaller unmarshaller) {
-      return decoder.getChannel().remoteAddress();
+   public Channel createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec, CacheUnmarshaller unmarshaller) {
+      return decoder.getChannel();
    }
 
    @Override

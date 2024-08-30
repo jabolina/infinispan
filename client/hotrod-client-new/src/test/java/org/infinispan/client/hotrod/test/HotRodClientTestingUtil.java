@@ -147,6 +147,8 @@ public class HotRodClientTestingUtil {
       l.get().addClientListener(l);
       try {
          cons.accept(l.get());
+      } catch (Throwable t) {
+         log.fatalf(t, "Encountered unexpected exception");
       } finally {
          l.get().removeClientListener(l);
       }
