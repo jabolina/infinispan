@@ -173,6 +173,10 @@ public class OperationDispatcher {
       }
    }
 
+   public OperationChannel getHandlerForAddress(SocketAddress socketAddress) {
+      return channelHandler.getChannelForAddress(socketAddress);
+   }
+
    public <E> CompletionStage<E> execute(HotRodOperation<E> operation) {
       return execute(operation, Set.of());
    }

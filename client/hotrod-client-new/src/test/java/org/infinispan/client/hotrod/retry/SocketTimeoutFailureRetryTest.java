@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
+import org.infinispan.client.hotrod.Internals;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.commands.read.GetCacheEntryCommand;
@@ -62,9 +63,11 @@ public class SocketTimeoutFailureRetryTest extends AbstractRetryTest {
       CompletableFuture<Void> delay = new CompletableFuture<>();
       interceptor.delayNextRequest(delay);
 
-      assertEquals(0, remoteCacheManager.getOperationDispatcher().getRetries());
+      assertEquals(0, Internals.dispatcher(remoteCacheManager).getRetries());
       assertEquals("v1", remoteCache.get(key));
-      assertEquals(1, remoteCacheManager.getOperationDispatcher().getRetries());
+      assertEquals(1, Internals.dispatcher(remoteCacheManager).getRetries());
+      assertEquals("v1", remoteCache.get(key));
+      assertEquals(1, Internals.dispatcher(remoteCacheManager).getRetries());
 
       delay.complete(null);
    }

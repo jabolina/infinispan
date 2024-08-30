@@ -218,4 +218,8 @@ public class ChannelHandler {
                   .registeredOperationsById()
                   .values().stream());
    }
+
+   public OperationChannel getChannelForAddress(SocketAddress socketAddress) {
+      return channels.get(socketAddress);
+   }
 }

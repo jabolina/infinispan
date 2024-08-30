@@ -8,6 +8,7 @@ import java.net.SocketAddress;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.client.hotrod.HitsAwareCacheManagersTest;
+import org.infinispan.client.hotrod.Internals;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHash;
@@ -72,7 +73,7 @@ public abstract class AbstractRetryTest extends HitsAwareCacheManagersTest {
 
       remoteCacheManager = createRemoteCacheManager(hotRodServer1.getPort());
       remoteCache = (RemoteCacheImpl) remoteCacheManager.getCache();
-      dispatcher = remoteCacheManager.getOperationDispatcher();
+      dispatcher = Internals.dispatcher(remoteCacheManager);
       strategy = getLoadBalancer(remoteCacheManager);
       addInterceptors();
 

@@ -17,7 +17,6 @@ import org.infinispan.client.hotrod.exceptions.HotRodClientException;
 import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
 import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
-import org.infinispan.client.hotrod.test.NoopChannelOperation;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
@@ -84,8 +83,7 @@ public class ServerErrorTest extends SingleCacheManagerTest {
       // Obtain a reference to the single connection in the pool
       OperationDispatcher dispatcher = remoteCacheManager.getOperationDispatcher();
       InetSocketAddress address = InetSocketAddress.createUnresolved(hotrodServer.getHost(), hotrodServer.getPort());
-      Channel channel = dispatcher.executeOnSingleAddress(new NoopChannelOperation(), address)
-            .toCompletableFuture().join();
+      Channel channel = dispatcher.getHandlerForAddress(address).getChannel();
 
       // Obtain a reference to the scheduled executor and its task queue
       AbstractScheduledEventExecutor scheduledExecutor = ((AbstractScheduledEventExecutor) channel.eventLoop());

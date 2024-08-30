@@ -11,14 +11,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.infinispan.client.hotrod.CacheTopologyInfo;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
-import org.infinispan.client.hotrod.test.NoopChannelOperation;
+import org.infinispan.client.hotrod.impl.transport.netty.OperationChannel;
 import org.infinispan.commons.util.concurrent.AggregateCompletionStage;
 import org.infinispan.commons.util.concurrent.CompletionStages;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.testng.annotations.Test;
-
-import io.netty.channel.Channel;
 
 @Test(groups = "functional", testName = "client.hotrod.retry.TopologyUpdateRetryTest")
 public class TopologyUpdateRetryTest extends AbstractRetryTest {
@@ -33,13 +31,12 @@ public class TopologyUpdateRetryTest extends AbstractRetryTest {
             .getServer(marshall(1));
 
       // We acquire the channel and never release. All the issues operations will queue up.
-      Channel channel = dispatcher.executeOnSingleAddress(new NoopChannelOperation(), address)
-            .toCompletableFuture().get(10, TimeUnit.SECONDS);
+      OperationChannel opChannel = dispatcher.getHandlerForAddress(address);
 
       CountDownLatch latch = new CountDownLatch(1);
 
       // Block the event loop which will prevent the operations from being processed
-      channel.eventLoop().submit(() -> latch.await(10, TimeUnit.SECONDS));
+      opChannel.getChannel().eventLoop().submit(() -> latch.await(10, TimeUnit.SECONDS));
 
       // We issue all of these operations which do not complete until the latch is released.
       AggregateCompletionStage<?> operations = CompletionStages.aggregateCompletionStage();

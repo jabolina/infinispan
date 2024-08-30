@@ -37,7 +37,7 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
    // Unfortunately MessagePassingQueue doesn't implement Queue so we use the concrete class
    private final MpscUnboundedArrayQueue<HotRodOperation<?>> queue = new MpscUnboundedArrayQueue<>(128);
 
-   // Volatile as operations can be subitted outside of the event loop (channel only written in event loop once)
+   // Volatile as operations can be submitted outside of the event loop (channel only written in event loop once)
    private volatile Channel channel;
 
    // All variable after this can ONLY be read/written while in the event loop
@@ -101,8 +101,7 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
    public void markAcceptingRequests() {
       channel.eventLoop().submit(() -> {
          acceptingRequests = true;
-         // We can't send requests unless the stage is completed as well.
-            sendOperations();
+         sendOperations();
       });
    }
 
@@ -141,7 +140,7 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
 
    private void sendOperations() {
       assert channel.eventLoop().inEventLoop();
-      if (queue.isEmpty()) {
+      if (!acceptingRequests || queue.isEmpty()) {
          return;
       }
 

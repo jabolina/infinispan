@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.infinispan.client.hotrod.CacheTopologyInfo;
+import org.infinispan.client.hotrod.Internals;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.configuration.ClientIntelligence;
@@ -135,7 +136,7 @@ public class ClientIntelligenceClusterTest extends AbstractMultipleSitesTest {
    }
 
    private static void assertHashAwareIntelligence(RemoteCacheManager ircm, String cacheName) {
-      OperationDispatcher dispatcher = ircm.getOperationDispatcher();
+      OperationDispatcher dispatcher = Internals.dispatcher(ircm);
 
       log.debugf("Server list: %s", dispatcher.getServers(cacheName));
       log.debugf("Topology Info: %s", dispatcher.getCacheTopologyInfo(cacheName));
@@ -150,7 +151,7 @@ public class ClientIntelligenceClusterTest extends AbstractMultipleSitesTest {
    }
 
    private static void assertTopologyAwareIntelligence(RemoteCacheManager ircm, String cacheName) {
-      OperationDispatcher dispatcher = ircm.getOperationDispatcher();
+      OperationDispatcher dispatcher = Internals.dispatcher(ircm);
 
       log.debugf("Server list: %s", dispatcher.getServers(cacheName));
       log.debugf("Topology Info: %s", dispatcher.getCacheTopologyInfo(cacheName));
@@ -165,7 +166,7 @@ public class ClientIntelligenceClusterTest extends AbstractMultipleSitesTest {
    }
 
    private static void assertBasicIntelligence(RemoteCacheManager ircm, String cacheName) {
-      OperationDispatcher dispatcher = ircm.getOperationDispatcher();
+      OperationDispatcher dispatcher = Internals.dispatcher(ircm);
 
       log.debugf("Server list: %s", dispatcher.getServers(cacheName));
       log.debugf("Topology Info: %s", dispatcher.getCacheTopologyInfo(cacheName));

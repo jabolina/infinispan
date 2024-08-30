@@ -4,6 +4,7 @@ import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killRemo
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killServers;
 import static org.infinispan.server.hotrod.test.HotRodTestingUtil.assertHotRodEquals;
 import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
+import static org.infinispan.server.hotrod.test.HotRodTestingUtil.marshall;
 import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
 import static org.infinispan.test.TestingUtil.blockUntilViewReceived;
 import static org.testng.AssertJUnit.assertEquals;
@@ -19,7 +20,6 @@ import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
 import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.client.hotrod.test.InternalRemoteCacheManager;
-import org.infinispan.client.hotrod.test.NoopChannelOperation;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.distribution.DistributionManager;
@@ -33,8 +33,6 @@ import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
-
-import io.netty.channel.Channel;
 
 /**
  * @author Mircea.Markus@jboss.com
@@ -128,8 +126,7 @@ public class CSAIntegrationTest extends HitsAwareCacheManagersTest {
    public void testHashFunctionReturnsSameValues() throws InterruptedException {
       for (int i = 0; i < 1000; i++) {
          byte[] key = generateKey(i);
-         Channel channel = dispatcher.execute(new NoopChannelOperation()).toCompletableFuture().join();
-         SocketAddress serverAddress = channel.remoteAddress();
+         SocketAddress serverAddress = dispatcher.getCacheInfo(HotRodConstants.DEFAULT_CACHE_NAME).getConsistentHash().getServer(key);
          // TODO: this probably will fail since the address is resolved but addr2hrServer wants unresolved
          CacheContainer cacheContainer = addr2hrServer.get(serverAddress).getCacheManager();
          assertNotNull("For server address " + serverAddress + " found " + cacheContainer + ". Map is: " + addr2hrServer, cacheContainer);
@@ -154,8 +151,8 @@ public class CSAIntegrationTest extends HitsAwareCacheManagersTest {
          keys.add(key);
          String keyStr = new String(key);
          remoteCache.put(keyStr, "value");
-         Channel channel = dispatcher.execute(new NoopChannelOperation()).toCompletableFuture().join();
-         SocketAddress serverAddress = channel.remoteAddress();
+         SocketAddress serverAddress = dispatcher.getCacheInfo(HotRodConstants.DEFAULT_CACHE_NAME)
+               .getConsistentHash().getServer(marshall(keyStr));
          assertHotRodEquals(addr2hrServer.get(serverAddress).getCacheManager(), keyStr, "value");
       }
 
@@ -165,8 +162,8 @@ public class CSAIntegrationTest extends HitsAwareCacheManagersTest {
          resetStats();
          String keyStr = new String(key);
          assert remoteCache.get(keyStr).equals("value");
-         Channel channel = dispatcher.execute(new NoopChannelOperation()).toCompletableFuture().join();
-         SocketAddress serverAddress = channel.remoteAddress();
+         SocketAddress serverAddress = dispatcher.getCacheInfo(HotRodConstants.DEFAULT_CACHE_NAME)
+               .getConsistentHash().getServer(marshall(keyStr));
          assertOnlyServerHit(serverAddress);
       }
    }

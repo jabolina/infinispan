@@ -23,6 +23,7 @@ import javax.management.ObjectName;
 
 import org.infinispan.Cache;
 import org.infinispan.client.hotrod.FailoverRequestBalancingStrategy;
+import org.infinispan.client.hotrod.Internals;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheContainer;
 import org.infinispan.client.hotrod.RemoteCacheManager;
@@ -312,7 +313,7 @@ public class HotRodClientTestingUtil {
    }
 
    public static <T extends FailoverRequestBalancingStrategy> T getLoadBalancer(RemoteCacheManager client) {
-      return (T) client.getOperationDispatcher().getBalancer(HotRodConstants.DEFAULT_CACHE_NAME);
+      return (T) Internals.dispatcher(client).getBalancer(HotRodConstants.DEFAULT_CACHE_NAME);
    }
 
 

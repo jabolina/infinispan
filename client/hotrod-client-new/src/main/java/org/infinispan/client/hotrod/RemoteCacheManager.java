@@ -673,7 +673,7 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
    /**
     * This method is not a part of the public API. It is exposed for internal purposes only.
     */
-   public OperationDispatcher getOperationDispatcher() {
+   protected OperationDispatcher getOperationDispatcher() {
       return dispatcher;
    }
 

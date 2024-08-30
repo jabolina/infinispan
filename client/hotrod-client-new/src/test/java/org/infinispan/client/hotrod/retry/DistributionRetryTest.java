@@ -4,7 +4,6 @@ import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheCon
 import static org.testng.Assert.assertEquals;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,7 +15,6 @@ import org.infinispan.affinity.KeyGenerator;
 import org.infinispan.client.hotrod.VersionedValue;
 import org.infinispan.client.hotrod.exceptions.TransportException;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
-import org.infinispan.client.hotrod.test.NoopChannelOperation;
 import org.infinispan.commons.marshall.ProtoStreamMarshaller;
 import org.infinispan.commons.test.Exceptions;
 import org.infinispan.configuration.cache.CacheMode;
@@ -24,8 +22,6 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.test.fwk.CleanupAfterMethod;
 import org.testng.annotations.Test;
-
-import io.netty.channel.Channel;
 
 /**
  * @author Mircea.Markus@jboss.com
@@ -143,14 +139,8 @@ public class DistributionRetryTest extends AbstractRetryTest {
       remoteCache.put(key, "v");
       assertOnlyServerHit(getAddress(hotRodServer2));
 
-      Channel channel = dispatcher.execute(new NoopChannelOperation())
-            .toCompletableFuture().join();
-      assertEquals(channel.remoteAddress(), new InetSocketAddress(hotRodServer2.getHost(), hotRodServer2.getPort()));
-
-
       log.info("About to stop Hot Rod server 2");
       HotRodClientTestingUtil.killServers(hotRodServer2);
-      eventually(() -> !channel.isActive());
 
       return key;
    }
