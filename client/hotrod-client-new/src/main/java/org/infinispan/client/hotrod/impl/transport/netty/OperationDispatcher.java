@@ -7,7 +7,6 @@ import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -27,11 +26,14 @@ import org.infinispan.client.hotrod.configuration.ClusterConfiguration;
 import org.infinispan.client.hotrod.configuration.Configuration;
 import org.infinispan.client.hotrod.configuration.ServerConfiguration;
 import org.infinispan.client.hotrod.event.impl.ClientListenerNotifier;
+import org.infinispan.client.hotrod.exceptions.HotRodClientException;
+import org.infinispan.client.hotrod.exceptions.RemoteNodeSuspectException;
 import org.infinispan.client.hotrod.impl.ClientTopology;
 import org.infinispan.client.hotrod.impl.TopologyInfo;
 import org.infinispan.client.hotrod.impl.Util;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHash;
 import org.infinispan.client.hotrod.impl.consistenthash.SegmentConsistentHash;
+import org.infinispan.client.hotrod.impl.operations.DelegatingHotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
 import org.infinispan.client.hotrod.impl.topology.CacheInfo;
@@ -42,6 +44,7 @@ import org.infinispan.commons.util.concurrent.CompletionStages;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.DecoderException;
 import net.jcip.annotations.GuardedBy;
 
 /**
@@ -61,6 +64,7 @@ public class OperationDispatcher {
 
    private final StampedLock lock = new StampedLock();
    private final List<ClusterInfo> clusters;
+   private final int maxRetries;
    // TODO: need to add to this on retries
    private final AtomicLong retryCounter = new AtomicLong();
    // The internal state of this is not thread safe
@@ -70,8 +74,6 @@ public class OperationDispatcher {
    private CompletableFuture<Void> clusterSwitchStage;
    // Servers for which the last connection attempt failed - when this matches the current topology we will
    // fail back to initial list and if all of those fail we fail over to a different cluster if present
-   @GuardedBy("lock")
-   private final Set<SocketAddress> failedServers = new HashSet<>();
 
    // This is normally null, however when a cluster switch happens this will be initialized and any currently
    // pending operations will be added to it. Then when a command is completed it will be removed from this
@@ -85,6 +87,7 @@ public class OperationDispatcher {
    public OperationDispatcher(Configuration configuration, ExecutorService executorService,
                               ClientListenerNotifier clientListenerNotifier, Consumer<ChannelPipeline> pipelineDecorator) {
       this.clientListenerNotifier = clientListenerNotifier;
+      this.maxRetries = configuration.maxRetries();
 
       List<InetSocketAddress> initialServers = new ArrayList<>();
       for (ServerConfiguration server : configuration.servers()) {
@@ -171,6 +174,10 @@ public class OperationDispatcher {
    }
 
    public <E> CompletionStage<E> execute(HotRodOperation<E> operation) {
+      return execute(operation, Set.of());
+   }
+
+   public <E> CompletionStage<E> execute(HotRodOperation<E> operation, Set<SocketAddress> failedServers) {
       Object routingObj = operation.getRoutingObject();
       if (routingObj != null) {
          CacheInfo cacheInfo = getCacheInfo(operation.getCacheName());
@@ -181,7 +188,7 @@ public class OperationDispatcher {
             }
          }
       }
-      SocketAddress targetAddress = getBalancer(operation.getCacheName()).nextServer(Collections.emptySet());
+      SocketAddress targetAddress = getBalancer(operation.getCacheName()).nextServer(failedServers);
       return executeOnSingleAddress(operation, targetAddress);
    }
 
@@ -303,9 +310,6 @@ public class OperationDispatcher {
          HOTROD.removingServer(server);
          channelHandler.closeChannel(server);
       }
-
-      // We don't care if the server is failed any more
-      this.failedServers.removeAll(removedServers);
    }
 
    public void onConnectionEvent(SocketAddress address) {
@@ -497,11 +501,87 @@ public class OperationDispatcher {
       if (log.isTraceEnabled()) {
          log.tracef("Completing response with value %s or exception %s into op %s", returnValue, t, op);
       }
-      // TODO: need to do retry
       if (t != null) {
-         op.completeExceptionally(t);
+         RetryingHotRodOperation<?> retryOp = checkException(t, channel, op);
+         if (retryOp != null) {
+            logAndRetryOrFail(t, retryOp);
+         }
       } else {
          op.complete(returnValue);
+      }
+   }
+
+   static class RetryingHotRodOperation<T> extends DelegatingHotRodOperation<T> {
+      private final Set<SocketAddress> failedServers;
+      private int retryCount;
+
+      static <T> RetryingHotRodOperation<T> retryingOp(HotRodOperation<T> op) {
+         if (op instanceof RetryingHotRodOperation<T> operation) {
+            return operation;
+         }
+         return new RetryingHotRodOperation<>(op);
+      }
+
+      RetryingHotRodOperation(HotRodOperation<T> op) {
+         super(op);
+
+         this.failedServers = new HashSet<>();
+      }
+
+      void addFailedServer(SocketAddress socketAddress) {
+         failedServers.add(socketAddress);
+      }
+
+      int incrementRetry() {
+         return ++retryCount;
+      }
+
+      public Set<SocketAddress> getFailedServers() {
+         return failedServers;
+      }
+   }
+
+   private RetryingHotRodOperation<?> checkException(Throwable cause, Channel channel, HotRodOperation<?> op) {
+      while (cause instanceof DecoderException && cause.getCause() != null) {
+         cause = cause.getCause();
+      }
+      if (cause instanceof RemoteNodeSuspectException) {
+         // TODO Clients should never receive a RemoteNodeSuspectException, see ISPN-11636
+         return RetryingHotRodOperation.retryingOp(op);
+      } else if (isServerError(cause)) {
+         op.completeExceptionally(cause);
+         return null;
+      } else {
+         if (Thread.interrupted()) {
+            InterruptedException e = new InterruptedException();
+            e.addSuppressed(cause);
+            op.completeExceptionally(e);
+            return null;
+         }
+         var retrying = RetryingHotRodOperation.retryingOp(op);
+         SocketAddress server = channelHandler.unresolvedAddressForChannel(channel);
+         if (server != null) {
+            retrying.addFailedServer(server);
+         }
+         return retrying;
+      }
+   }
+
+   protected final boolean isServerError(Throwable t) {
+      return t instanceof HotRodClientException && ((HotRodClientException) t).isServerError();
+   }
+
+   protected void logAndRetryOrFail(Throwable e, RetryingHotRodOperation<?> op) {
+      int retryAttempt = op.incrementRetry();
+      if (retryAttempt <= maxRetries) {
+         if (log.isTraceEnabled()) {
+            log.tracef(e, "Exception encountered in %s. Retry %d out of %d", this, retryAttempt, maxRetries);
+         }
+         retryCounter.incrementAndGet();
+         execute(op, op.getFailedServers());
+      } else {
+         HOTROD.exceptionAndNoRetriesLeft(retryAttempt, maxRetries, e);
+         op.completeExceptionally(e);
       }
    }
 
