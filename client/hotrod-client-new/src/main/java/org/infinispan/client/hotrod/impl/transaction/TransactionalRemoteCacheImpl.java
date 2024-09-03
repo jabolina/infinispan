@@ -52,8 +52,8 @@ public class TransactionalRemoteCacheImpl<K, V> extends RemoteCacheImpl<K, V> {
    // TODO: need to make this class a wrapper instead of extending
    public TransactionalRemoteCacheImpl(RemoteCacheManager rcm, String name, boolean forceReturnValue,
          boolean recoveryEnabled, TransactionManager transactionManager,
-         TransactionTable transactionTable, TimeService timeService) {
-      super(rcm, name, timeService);
+         TransactionTable transactionTable, TimeService timeService, boolean isObjectStorage) {
+      super(rcm, name, timeService, isObjectStorage);
       this.forceReturnValue = forceReturnValue;
       this.recoveryEnabled = recoveryEnabled;
       this.transactionManager = transactionManager;

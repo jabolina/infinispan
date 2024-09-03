@@ -39,12 +39,14 @@ import org.infinispan.client.hotrod.impl.iteration.RemotePublisher;
 import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.ClearOperation;
+import org.infinispan.client.hotrod.impl.operations.DefaultCacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.GetAllOperation;
 import org.infinispan.client.hotrod.impl.operations.GetWithMetadataOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.PingResponse;
 import org.infinispan.client.hotrod.impl.operations.PutAllOperation;
 import org.infinispan.client.hotrod.impl.operations.RetryAwareCompletionStage;
+import org.infinispan.client.hotrod.impl.operations.RoutingCacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.protocol.Codec30;
 import org.infinispan.client.hotrod.impl.query.RemoteQueryFactory;
 import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
@@ -90,11 +92,12 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    private OperationDispatcher dispatcher;
    private RemoteQueryFactory queryFactory;
 
-   public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService) {
-      this(rcm, name, timeService, null);
+   public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService, boolean isObjectStorage) {
+      this(rcm, name, timeService, null, isObjectStorage);
    }
 
-   public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService, NearCacheService<K, V> nearCacheService) {
+   public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService, NearCacheService<K, V> nearCacheService,
+                          boolean isObjectStorage) {
       if (log.isTraceEnabled()) {
          log.tracef("Creating remote cache: %s", name);
       }
@@ -103,12 +106,12 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.remoteCacheManager = rcm;
       this.dataFormat = DataFormat.builder().build();
       this.clientStatistics = new ClientStatistics(rcm.getConfiguration().statistics().enabled(), timeService, nearCacheService);
-      this.operationsFactory = new CacheOperationsFactory(this);
+      this.operationsFactory = isObjectStorage ? new RoutingCacheOperationsFactory(new DefaultCacheOperationsFactory(this)) : new DefaultCacheOperationsFactory(this);
       this.clientListenerNotifier = rcm.getListenerNotifier();
       this.flagInt = rcm.getConfiguration().forceReturnValues() ? Flag.FORCE_RETURN_VALUE.getFlagInt() : 0;
    }
 
-   protected RemoteCacheImpl(RemoteCacheManager rcm, String name, ClientStatistics clientStatistics) {
+   protected RemoteCacheImpl(RemoteCacheManager rcm, String name, ClientStatistics clientStatistics, boolean isObjectStorage) {
       if (log.isTraceEnabled()) {
          log.tracef("Creating remote cache: %s", name);
       }
@@ -117,7 +120,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.remoteCacheManager = rcm;
       this.dataFormat = DataFormat.builder().build();
       this.clientStatistics = clientStatistics;
-      this.operationsFactory = new CacheOperationsFactory(this);
+      this.operationsFactory = isObjectStorage ? new RoutingCacheOperationsFactory(new DefaultCacheOperationsFactory(this)) : new DefaultCacheOperationsFactory(this);
       this.clientListenerNotifier = rcm.getListenerNotifier();
       this.flagInt = rcm.getConfiguration().forceReturnValues() ? Flag.FORCE_RETURN_VALUE.getFlagInt() : 0;
    }
@@ -131,7 +134,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.remoteCacheManager = other.remoteCacheManager;
       this.dataFormat = other.dataFormat;
       this.clientStatistics = other.clientStatistics;
-      this.operationsFactory = new CacheOperationsFactory(this);
+      this.operationsFactory = other.operationsFactory.newFactoryFor(this);
       this.flagInt = flagInt;
       this.clientListenerNotifier = other.clientListenerNotifier;
 
@@ -276,8 +279,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public CompletableFuture<MetadataValue<V>> getWithMetadataAsync(K key) {
       assertRemoteCacheManagerIsStarted();
-      GetWithMetadataOperation<V> op = operationsFactory.newGetWithMetadataOperation(
-            key, null);
+      HotRodOperation<MetadataValue<V>> op = operationsFactory.newGetWithMetadataOperation(key);
       return dispatcher.execute(op).toCompletableFuture();
    }
 
@@ -667,7 +669,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    }
 
    @Override
-   public CacheOperationsFactory getCacheOperationsFactory() {
+   public CacheOperationsFactory getOperationsFactory() {
       return operationsFactory;
    }
 
@@ -843,10 +845,6 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public CompletionStage<Void> updateBloomFilter() {
       return CompletableFuture.completedFuture(null);
-   }
-
-   public CacheOperationsFactory getOperationsFactory() {
-      return operationsFactory;
    }
 
    @Override

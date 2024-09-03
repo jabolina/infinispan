@@ -104,7 +104,7 @@ public final class RemoteQuery<T> extends BaseQuery<T> {
 
    private BaseQueryResponse<T> executeRemotely(boolean withHitCount) {
       validateNamedParameters();
-      QueryOperation op = cache.getCacheOperationsFactory().newQueryOperation(this, withHitCount);
+      QueryOperation op = cache.getOperationsFactory().newQueryOperation(this, withHitCount);
       CompletionStage<BaseQueryResponse<T>> stage = cache.getDispatcher().execute(op);
       return (BaseQueryResponse<T>) (timeout != -1 ? await(stage, TimeUnit.NANOSECONDS.toMillis(timeout)) :
             await(stage));

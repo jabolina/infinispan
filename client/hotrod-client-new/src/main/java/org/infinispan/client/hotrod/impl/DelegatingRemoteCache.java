@@ -399,8 +399,8 @@ public abstract class DelegatingRemoteCache<K, V> extends RemoteCacheSupport<K, 
    }
 
    @Override
-   public CacheOperationsFactory getCacheOperationsFactory() {
-      return delegate.getCacheOperationsFactory();
+   public CacheOperationsFactory getOperationsFactory() {
+      return delegate.getOperationsFactory();
    }
 
    @Override

@@ -261,7 +261,7 @@ public class InvalidatedNearRemoteCache<K, V> extends DelegatingRemoteCache<K, V
                org.infinispan.commons.util.Util.printArray(bloomFilterBits), listenerChannel,
                org.infinispan.commons.util.Util.printArray(nearcache.getListenerId()));
       }
-      CacheOperationsFactory operationsFactory = getCacheOperationsFactory();
+      CacheOperationsFactory operationsFactory = getOperationsFactory();
       HotRodOperation<Void> op = operationsFactory.newUpdateBloomFilterOperation(bloomFilterBits);
       return incrementBloomVersionUponCompletion(getDispatcher().executeOnSingleAddress(op, ChannelRecord.of(listenerChannel)));
    }
@@ -276,7 +276,7 @@ public class InvalidatedNearRemoteCache<K, V> extends DelegatingRemoteCache<K, V
 
    @Override
    public Channel addNearCacheListener(Object listener, int bloomBits) {
-      ClientListenerOperation op = getCacheOperationsFactory().newAddNearCacheListenerOperation(listener,
+      ClientListenerOperation op = getOperationsFactory().newAddNearCacheListenerOperation(listener,
             bloomBits);
       return Util.await(getDispatcher().executeAddListener(op));
    }

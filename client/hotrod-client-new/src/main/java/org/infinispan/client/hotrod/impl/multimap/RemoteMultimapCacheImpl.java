@@ -10,15 +10,9 @@ import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.exceptions.RemoteCacheManagerNotStartedException;
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
-import org.infinispan.client.hotrod.impl.multimap.operations.ContainsEntryMultimapOperation;
-import org.infinispan.client.hotrod.impl.multimap.operations.ContainsKeyMultimapOperation;
-import org.infinispan.client.hotrod.impl.multimap.operations.ContainsValueMultimapOperation;
-import org.infinispan.client.hotrod.impl.multimap.operations.GetKeyMultimapOperation;
-import org.infinispan.client.hotrod.impl.multimap.operations.GetKeyWithMetadataMultimapOperation;
+import org.infinispan.client.hotrod.impl.multimap.operations.DefaultMultimapOperationsFactory;
 import org.infinispan.client.hotrod.impl.multimap.operations.MultimapOperationsFactory;
-import org.infinispan.client.hotrod.impl.multimap.operations.PutKeyValueMultimapOperation;
-import org.infinispan.client.hotrod.impl.multimap.operations.RemoveEntryMultimapOperation;
-import org.infinispan.client.hotrod.impl.multimap.operations.RemoveKeyMultimapOperation;
+import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
@@ -49,7 +43,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
    private final boolean supportsDuplicates;
 
    public void init() {
-      operationsFactory = new MultimapOperationsFactory(cache, remoteCacheManager.getMarshaller(),
+      operationsFactory = new DefaultMultimapOperationsFactory(cache, remoteCacheManager.getMarshaller(),
             new AdaptiveBufferSizePredictor(), new AdaptiveBufferSizePredictor());
       dispatcher = cache.getDispatcher();
       this.marshaller = remoteCacheManager.getMarshaller();
@@ -75,7 +69,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
       }
       assertRemoteCacheManagerIsStarted();
 
-      PutKeyValueMultimapOperation op = operationsFactory.newPutKeyValueOperation(key, value,
+      HotRodOperation<Void> op = operationsFactory.newPutKeyValueOperation(key, value,
              0, MILLISECONDS, 0, MILLISECONDS, supportsDuplicates);
       return dispatcher.execute(op).toCompletableFuture();
    }
@@ -87,7 +81,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
       }
       assertRemoteCacheManagerIsStarted();
 
-      GetKeyMultimapOperation<V> gco = operationsFactory.newGetKeyMultimapOperation(key, supportsDuplicates);
+      HotRodOperation<Collection<V>> gco = operationsFactory.newGetKeyMultimapOperation(key, supportsDuplicates);
       return dispatcher.execute(gco).toCompletableFuture();
    }
 
@@ -97,7 +91,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          log.tracef("About to call getWithMetadata (K): (%s)", key);
       }
       assertRemoteCacheManagerIsStarted();
-      GetKeyWithMetadataMultimapOperation<V> operation
+      HotRodOperation<MetadataCollection<V>> operation
             = operationsFactory.newGetKeyWithMetadataMultimapOperation(key, supportsDuplicates);
       return dispatcher.execute(operation).toCompletableFuture();
    }
@@ -108,7 +102,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          log.tracef("About to remove (K): (%s)", key);
       }
       assertRemoteCacheManagerIsStarted();
-      RemoveKeyMultimapOperation removeOperation = operationsFactory.newRemoveKeyOperation(key, supportsDuplicates);
+      HotRodOperation<Boolean> removeOperation = operationsFactory.newRemoveKeyOperation(key, supportsDuplicates);
       return dispatcher.execute(removeOperation).toCompletableFuture();
    }
 
@@ -118,7 +112,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          log.tracef("About to remove (K,V): (%s, %s)", key, value);
       }
       assertRemoteCacheManagerIsStarted();
-      RemoveEntryMultimapOperation removeOperation = operationsFactory.newRemoveEntryOperation(key, value, supportsDuplicates);
+      HotRodOperation<Boolean> removeOperation = operationsFactory.newRemoveEntryOperation(key, value, supportsDuplicates);
       return dispatcher.execute(removeOperation).toCompletableFuture();
    }
 
@@ -128,7 +122,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          log.tracef("About to call contains (K): (%s)", key);
       }
       assertRemoteCacheManagerIsStarted();
-      ContainsKeyMultimapOperation containsKeyOperation = operationsFactory.newContainsKeyOperation(key, supportsDuplicates);
+      HotRodOperation<Boolean> containsKeyOperation = operationsFactory.newContainsKeyOperation(key, supportsDuplicates);
       return dispatcher.execute(containsKeyOperation).toCompletableFuture();
    }
 
@@ -139,7 +133,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
       }
       assertRemoteCacheManagerIsStarted();
       byte[] marshallValue = MarshallerUtil.obj2bytes(marshaller, value, valueSizePredictor);
-      ContainsValueMultimapOperation containsValueOperation = operationsFactory.newContainsValueOperation(marshallValue, supportsDuplicates);
+      HotRodOperation<Boolean> containsValueOperation = operationsFactory.newContainsValueOperation(marshallValue, supportsDuplicates);
       return dispatcher.execute(containsValueOperation).toCompletableFuture();
    }
 
@@ -149,7 +143,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          log.tracef("About to call contais(K,V): (%s, %s)", key, value);
       }
       assertRemoteCacheManagerIsStarted();
-      ContainsEntryMultimapOperation containsOperation = operationsFactory.newContainsEntryOperation(key, value, supportsDuplicates);
+      HotRodOperation<Boolean> containsOperation = operationsFactory.newContainsEntryOperation(key, value, supportsDuplicates);
       return dispatcher.execute(containsOperation).toCompletableFuture();
    }
 

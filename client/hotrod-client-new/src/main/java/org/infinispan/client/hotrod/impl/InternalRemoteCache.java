@@ -92,7 +92,7 @@ public interface InternalRemoteCache<K, V> extends RemoteCache<K, V> {
     */
    CompletionStage<Void> updateBloomFilter();
 
-   CacheOperationsFactory getCacheOperationsFactory();
+   CacheOperationsFactory getOperationsFactory();
 
    ClientListenerNotifier getListenerNotifier();
 }

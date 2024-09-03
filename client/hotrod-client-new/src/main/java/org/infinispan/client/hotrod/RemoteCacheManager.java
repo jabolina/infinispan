@@ -62,6 +62,7 @@ import org.infinispan.client.hotrod.near.NearCacheService;
 import org.infinispan.client.hotrod.transaction.lookup.GenericTransactionManagerLookup;
 import org.infinispan.commons.api.CacheContainerAdmin;
 import org.infinispan.commons.configuration.StringConfiguration;
+import org.infinispan.commons.dataconversion.MediaType;
 import org.infinispan.commons.executors.ExecutorFactory;
 import org.infinispan.commons.marshall.JavaSerializationMarshaller;
 import org.infinispan.commons.marshall.Marshaller;
@@ -547,16 +548,18 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
          pingResponse = PingResponse.EMPTY;
       }
 
+      boolean objectStorage = pingResponse.getKeyMediaType() == MediaType.APPLICATION_OBJECT;
+
       TransactionMode transactionMode = getTransactionMode(transactionModeOverride, cacheConfiguration);
       InternalRemoteCache<K, V> remoteCache;
       if (transactionMode == TransactionMode.NONE) {
-         remoteCache = createRemoteCache(cacheName);
+         remoteCache = createRemoteCache(cacheName, objectStorage);
       } else {
          if (!await(checkTransactionSupport(cacheName, managerOpFactory, dispatcher).toCompletableFuture())) {
             throw HOTROD.cacheDoesNotSupportTransactions(cacheName);
          } else {
             TransactionManager transactionManager = getTransactionManager(transactionManagerOverride, cacheConfiguration);
-            remoteCache = createRemoteTransactionalCache(cacheName, forceReturnValueOverride,
+            remoteCache = createRemoteTransactionalCache(cacheName, objectStorage, forceReturnValueOverride,
                   transactionMode == TransactionMode.FULL_XA, transactionMode, transactionManager);
          }
       }
@@ -570,7 +573,7 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
       }
    }
 
-   private <K, V> InternalRemoteCache<K, V> createRemoteCache(String cacheName) {
+   private <K, V> InternalRemoteCache<K, V> createRemoteCache(String cacheName, boolean objectStorage) {
       RemoteCacheConfiguration remoteCacheConfiguration = configuration.remoteCaches().get(cacheName);
       NearCacheConfiguration nearCache;
       if (remoteCacheConfiguration != null) {
@@ -593,10 +596,10 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
             }
             NearCacheService<K, V> nearCacheService = createNearCacheService(cacheName, nearCache);
             return InvalidatedNearRemoteCache.delegatingNearCache(
-                  new RemoteCacheImpl<>(this, cacheName, timeService, nearCacheService) , nearCacheService);
+                  new RemoteCacheImpl<>(this, cacheName, timeService, nearCacheService, objectStorage) , nearCacheService);
          }
       }
-      return new RemoteCacheImpl<>(this, cacheName, timeService);
+      return new RemoteCacheImpl<>(this, cacheName, timeService, objectStorage);
    }
 
    protected <K, V> NearCacheService<K, V> createNearCacheService(String cacheName, NearCacheConfiguration cfg) {
@@ -716,11 +719,11 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
       }
    }
 
-   private <K, V> TransactionalRemoteCacheImpl<K, V> createRemoteTransactionalCache(String cacheName,
+   private <K, V> TransactionalRemoteCacheImpl<K, V> createRemoteTransactionalCache(String cacheName, boolean objectStorage,
                                                                                     boolean forceReturnValues, boolean recoveryEnabled, TransactionMode transactionMode,
                                                                                     TransactionManager transactionManager) {
       return new TransactionalRemoteCacheImpl<>(this, cacheName, forceReturnValues, recoveryEnabled, transactionManager,
-            getTransactionTable(transactionMode), timeService);
+            getTransactionTable(transactionMode), timeService, objectStorage);
    }
 
    /*
