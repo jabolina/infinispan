@@ -21,6 +21,8 @@ import org.infinispan.commons.dataconversion.MediaType;
 import org.infinispan.commons.util.CloseableIterator;
 import org.infinispan.commons.util.IntSet;
 
+import io.netty.channel.Channel;
+
 public interface InternalRemoteCache<K, V> extends RemoteCache<K, V> {
 
    byte[] getNameBytes();
@@ -81,7 +83,7 @@ public interface InternalRemoteCache<K, V> extends RemoteCache<K, V> {
     * Add a client listener to handle near cache with bloom filter optimization
     * The listener object must be annotated with @{@link org.infinispan.client.hotrod.annotation.ClientListener} annotation.
     */
-   SocketAddress addNearCacheListener(Object listener, int bloomBits);
+   Channel addNearCacheListener(Object listener, int bloomBits);
 
    /**
     * Sends the current bloom filter to the listener node where a near cache listener is installed. If this

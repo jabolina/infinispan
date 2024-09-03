@@ -104,13 +104,29 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
       Long messageIdLong = messageId;
       HotRodOperation<?> prev = incomplete.put(messageIdLong, operation);
       assert prev == null;
-      ScheduledFuture<?> future = channel.eventLoop().schedule(() -> {
-               timeouts.remove(messageIdLong);
-               dispatcher.handleResponse(operation, channel, null,
-                     new SocketTimeoutException(this + " timed out after " + configuration.socketTimeout() + " ms"));
-            }, configuration.socketTimeout(), TimeUnit.MILLISECONDS);
-      timeouts.put(messageIdLong, future);
+      scheduleTimeout(operation, messageIdLong);
       return messageId;
+   }
+
+   private void scheduleTimeout(HotRodOperation<?> op, Long messageIdLong) {
+      ScheduledFuture<?> future = channel.eventLoop().schedule(() -> {
+         timeouts.remove(messageIdLong);
+         dispatcher.handleResponse(op, channel, null,
+               new SocketTimeoutException(this + " timed out after " + configuration.socketTimeout() + " ms"));
+      }, configuration.socketTimeout(), TimeUnit.MILLISECONDS);
+      timeouts.put(messageIdLong, future);
+   }
+
+   public void refreshTimeout(HotRodOperation<?> op, long messageId) {
+      Long messageIdLong = messageId;
+      ScheduledFuture<?> future = timeouts.remove(messageIdLong);
+      if (future == null) {
+         log.tracef("Unable to refresh timeout for messageID %d", messageId);
+         return;
+      }
+
+      future.cancel(false);
+      scheduleTimeout(op, messageIdLong);
    }
 
    @Override
@@ -218,6 +234,9 @@ public class HeaderDecoder extends HintedReplayingDecoder<HeaderDecoder.State> {
                } catch (Throwable t) {
                   log.unableToReadEventFromServer(t, ctx.channel().remoteAddress());
                   throw t;
+               }
+               if (operation instanceof AddClientListenerOperation) {
+                  refreshTimeout(operation, receivedMessageId);
                }
                invokeEvent(cacheEvent.getListenerId(), cacheEvent);
                checkpoint(State.READ_MESSAGE_ID);

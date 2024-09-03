@@ -1,6 +1,5 @@
 package org.infinispan.client.hotrod.near;
 
-import java.net.SocketAddress;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,6 +26,8 @@ import org.infinispan.commons.util.IntSet;
 import org.infinispan.commons.util.MurmurHash3BloomFilter;
 import org.infinispan.commons.util.Util;
 
+import io.netty.channel.Channel;
+
 /**
  * Near cache service, manages the lifecycle of the near cache.
  *
@@ -46,14 +47,14 @@ public class NearCacheService<K, V> implements NearCache<K, V> {
    private int bloomFilterUpdateThreshold;
    private InternalRemoteCache<K, V> remote;
 
-   private SocketAddress listenerAddress;
+   private Channel channelUsed;
 
    protected NearCacheService(NearCacheConfiguration config, ClientListenerNotifier listenerNotifier) {
       this.config = config;
       this.listenerNotifier = listenerNotifier;
    }
 
-   public SocketAddress start(InternalRemoteCache<K, V> remote) {
+   public Channel start(InternalRemoteCache<K, V> remote) {
       if (cache == null) {
          // Create near cache
          cache = createNearCache(config, this::entryRemovedFromNearCache);
@@ -66,7 +67,7 @@ public class NearCacheService<K, V> implements NearCache<K, V> {
             // This number along with default values of 3 hash algorithms and 4x bit size we end up with
             // between 14.689 and 16.573 percent hits per entry.
             bloomFilterUpdateThreshold = maxEntries / 16 + 3;
-            listenerAddress = remote.addNearCacheListener(listener, bloomFilterBits);
+            channelUsed = remote.addNearCacheListener(listener, bloomFilterBits);
          } else {
             remote.addClientListener(listener);
          }
@@ -74,7 +75,7 @@ public class NearCacheService<K, V> implements NearCache<K, V> {
          listenerId = listenerNotifier.findListenerId(listener);
       }
       this.remote = remote;
-      return listenerAddress;
+      return channelUsed;
    }
 
    private static int determineBloomFilterBits(int maxEntries) {

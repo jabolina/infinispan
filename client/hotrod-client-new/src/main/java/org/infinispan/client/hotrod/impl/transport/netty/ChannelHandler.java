@@ -3,7 +3,6 @@ package org.infinispan.client.hotrod.impl.transport.netty;
 import java.io.File;
 import java.net.SocketAddress;
 import java.security.Provider;
-import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -26,7 +25,6 @@ import org.infinispan.commons.util.ProcessorInfo;
 import org.infinispan.commons.util.SslContextFactory;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
@@ -103,13 +101,6 @@ public class ChannelHandler {
       OperationChannel operationChannel = channels.computeIfAbsent(socketAddress, newOpChannel);
       operationChannel.attemptConnect();
       return operationChannel;
-   }
-
-   public SocketAddress unresolvedAddressForChannel(Channel channel) {
-      return channels.entrySet().stream().filter(e -> channel.equals(e.getValue().getChannel()))
-            .findFirst()
-            .map(Map.Entry::getKey)
-            .orElse(null);
    }
 
    public void closeChannel(SocketAddress address) {

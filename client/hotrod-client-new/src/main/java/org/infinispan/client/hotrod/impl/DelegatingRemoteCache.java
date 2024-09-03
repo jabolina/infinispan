@@ -32,6 +32,8 @@ import org.infinispan.commons.util.CloseableIteratorSet;
 import org.infinispan.commons.util.IntSet;
 import org.reactivestreams.Publisher;
 
+import io.netty.channel.Channel;
+
 /**
  * Delegates all invocations to the provided underlying {@link InternalRemoteCache} but provides extensibility to intercept
  * when a method is invoked. Currently all methods are supported except for iterators produced from the
@@ -137,7 +139,7 @@ public abstract class DelegatingRemoteCache<K, V> extends RemoteCacheSupport<K, 
    }
 
    @Override
-   public SocketAddress addNearCacheListener(Object listener, int bloomBits) {
+   public Channel addNearCacheListener(Object listener, int bloomBits) {
       return delegate.addNearCacheListener(listener, bloomBits);
    }
 

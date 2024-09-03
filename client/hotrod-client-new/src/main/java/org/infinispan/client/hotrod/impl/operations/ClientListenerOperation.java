@@ -44,5 +44,8 @@ public abstract class ClientListenerOperation extends AbstractCacheOperation<Cha
    }
 
    public abstract ClientListenerOperation copy();
-   // TODO: need to implement
+
+   public InternalRemoteCache<?, ?> getRemoteCache() {
+      return internalRemoteCache;
+   }
 }

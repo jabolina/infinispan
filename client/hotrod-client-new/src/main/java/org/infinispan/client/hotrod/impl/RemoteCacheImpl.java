@@ -32,7 +32,6 @@ import org.infinispan.client.hotrod.ServerStatistics;
 import org.infinispan.client.hotrod.StreamingRemoteCache;
 import org.infinispan.client.hotrod.configuration.Configuration;
 import org.infinispan.client.hotrod.configuration.StatisticsConfiguration;
-import org.infinispan.client.hotrod.event.impl.ClientEventDispatcher;
 import org.infinispan.client.hotrod.event.impl.ClientListenerNotifier;
 import org.infinispan.client.hotrod.exceptions.RemoteCacheManagerNotStartedException;
 import org.infinispan.client.hotrod.filter.Filters;
@@ -40,7 +39,6 @@ import org.infinispan.client.hotrod.impl.iteration.RemotePublisher;
 import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.ClearOperation;
-import org.infinispan.client.hotrod.impl.operations.ClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.GetAllOperation;
 import org.infinispan.client.hotrod.impl.operations.GetWithMetadataOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
@@ -67,6 +65,7 @@ import org.infinispan.commons.util.concurrent.CompletableFutures;
 import org.infinispan.query.dsl.Query;
 import org.reactivestreams.Publisher;
 
+import io.netty.channel.Channel;
 import io.reactivex.rxjava3.core.Flowable;
 
 /**
@@ -604,27 +603,12 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       AddClientListenerOperation op = operationsFactory.newAddClientListenerOperation(listener, filterFactoryParams, converterFactoryParams);
       // Must be registered before executing to ensure this is always ran on the event loop, thus guaranteeing
       // events cannot be received until after this has been processed
-      var addStage = handleAddListenerOperation(op, this);
-      dispatcher.execute(op);
       // We must wait on the stage to ensure the listeners are indeed registered fully before returning
-      await(addStage);
-   }
-
-   static CompletionStage<SocketAddress> handleAddListenerOperation(ClientListenerOperation op, InternalRemoteCache<?, ?> remoteCache) {
-      return op.thenApply(remoteCache.getDispatcher()::unresolvedAddressForChannel)
-            .whenComplete((sa, t) -> {
-         if (t != null) {
-            log.errorf("Error encountered trying to add listener %s", op.listener);
-         } else {
-            remoteCache.getListenerNotifier().addDispatcher(ClientEventDispatcher.create(op,
-                  sa, () -> {/* TODO s*/}, remoteCache));
-            remoteCache.getDispatcher().addListener(sa, op.listenerId);
-         }
-      });
+      await(dispatcher.executeAddListener(op));
    }
 
    @Override
-   public SocketAddress addNearCacheListener(Object listener, int bloomBits) {
+   public Channel addNearCacheListener(Object listener, int bloomBits) {
       throw new UnsupportedOperationException("Adding a near cache listener to a RemoteCache is not supported!");
    }
 

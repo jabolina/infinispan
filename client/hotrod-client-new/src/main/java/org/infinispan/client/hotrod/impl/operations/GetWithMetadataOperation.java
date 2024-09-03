@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.operations;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
 import org.infinispan.client.hotrod.MetadataValue;
@@ -31,6 +32,8 @@ public class GetWithMetadataOperation<V> extends AbstractKeyOperation<MetadataVa
 
    public GetWithMetadataOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, SocketAddress preferredServer) {
       super(remoteCache, keyBytes);
+      // We should always be passing resolved addresses here to confirm it matches
+      assert !(preferredServer instanceof InetSocketAddress) || !((InetSocketAddress) preferredServer).isUnresolved();
       this.preferredServer = preferredServer;
    }
 

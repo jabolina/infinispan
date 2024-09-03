@@ -75,8 +75,8 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
             Channel c = channelFuture.channel();
             assert c.eventLoop().inEventLoop();
             c.attr(OPERATION_CHANNEL_ATTRIBUTE_KEY).set(this);
-            connectionFailureListener.accept(this, null);
             channel = c;
+            connectionFailureListener.accept(this, null);
             headerDecoder = c.pipeline().get(HeaderDecoder.class);
             codec = headerDecoder.getConfiguration().version().getCodec();
             log.tracef("OperationChannel %s connect complete to %s", this, channel);

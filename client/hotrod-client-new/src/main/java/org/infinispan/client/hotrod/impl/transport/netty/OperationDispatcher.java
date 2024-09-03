@@ -27,6 +27,7 @@ import org.infinispan.client.hotrod.configuration.ClientIntelligence;
 import org.infinispan.client.hotrod.configuration.ClusterConfiguration;
 import org.infinispan.client.hotrod.configuration.Configuration;
 import org.infinispan.client.hotrod.configuration.ServerConfiguration;
+import org.infinispan.client.hotrod.event.impl.ClientEventDispatcher;
 import org.infinispan.client.hotrod.event.impl.ClientListenerNotifier;
 import org.infinispan.client.hotrod.exceptions.HotRodClientException;
 import org.infinispan.client.hotrod.exceptions.RemoteNodeSuspectException;
@@ -35,7 +36,7 @@ import org.infinispan.client.hotrod.impl.TopologyInfo;
 import org.infinispan.client.hotrod.impl.Util;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHash;
 import org.infinispan.client.hotrod.impl.consistenthash.SegmentConsistentHash;
-import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
+import org.infinispan.client.hotrod.impl.operations.ClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.DelegatingHotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodBulkOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
@@ -211,6 +212,27 @@ public class OperationDispatcher {
          }
       });
       return operation;
+   }
+
+   public CompletionStage<Channel> executeAddListener(ClientListenerOperation operation) {
+      return executeAddListener(operation, getBalancer(operation.getCacheName()).nextServer(Set.of()));
+   }
+
+   public CompletionStage<Channel> executeAddListener(ClientListenerOperation operation, SocketAddress target) {
+      clientListenerNotifier.addDispatcher(ClientEventDispatcher.create(operation,
+            target, () -> {/* TODO s*/}, operation.getRemoteCache()));
+      addListener(target, operation.listenerId);
+
+      return executeOnSingleAddress(operation, target)
+            .whenComplete((sa, t) -> {
+               if (t != null) {
+                  log.errorf("Error encountered trying to add listener %s", operation.listener);
+                  clientListenerNotifier.removeClientListener(operation.listenerId);
+                  removeListener(target, operation.listenerId);
+               } else {
+                  clientListenerNotifier.startClientListener(operation.listenerId);
+               }
+            });
    }
 
    private Function<Object, SocketAddress> identifyOperationTarget(HotRodOperation<?> operation, Set<SocketAddress> failedServers) {
@@ -558,7 +580,7 @@ public class OperationDispatcher {
       }
    }
 
-   public void addListener(SocketAddress sa, byte[] listenerId) {
+   private void addListener(SocketAddress sa, byte[] listenerId) {
       OperationChannel operationChannel = channelHandler.getChannelForAddress(sa);
       if (operationChannel == null) {
          throw new IllegalStateException("Channel is not running for address " + sa);
@@ -577,7 +599,7 @@ public class OperationDispatcher {
    }
 
    public SocketAddress unresolvedAddressForChannel(Channel c) {
-      return channelHandler.unresolvedAddressForChannel(c);
+      return ChannelRecord.of(c);
    }
 
    static class RetryingHotRodOperation<T> extends DelegatingHotRodOperation<T> {
@@ -628,7 +650,7 @@ public class OperationDispatcher {
             return null;
          }
          var retrying = RetryingHotRodOperation.retryingOp(op);
-         SocketAddress server = channelHandler.unresolvedAddressForChannel(channel);
+         SocketAddress server = unresolvedAddressForChannel(channel);
          if (server != null) {
             retrying.addFailedServer(server);
          }
@@ -657,6 +679,11 @@ public class OperationDispatcher {
 
    public void handleConnectionFailure(OperationChannel operationChannel, Throwable t) {
       // TODO: need to add to suspect and retry operations
+      if (t != null) {
+
+      } else {
+         ChannelRecord.set(operationChannel.getChannel(), operationChannel.getAddress());
+      }
    }
 
    public String getCurrentClusterName() {

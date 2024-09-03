@@ -32,6 +32,8 @@ import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
 import org.infinispan.commons.util.ReflectionUtil;
 import org.infinispan.commons.util.Util;
 
+import io.netty.channel.Channel;
+
 public final class ClientEventDispatcher extends EventDispatcher<ClientEvent> {
 
    private static final ClientCacheFailoverEvent FAILOVER_EVENT_SINGLETON = () -> ClientEvent.Type.CLIENT_CACHE_FAILOVER;
@@ -132,8 +134,7 @@ public final class ClientEventDispatcher extends EventDispatcher<ClientEvent> {
    @Override
    public CompletableFuture<Void> executeFailover() {
       OperationDispatcher dispatcher = remoteCache.getDispatcher();
-      CompletableFuture<SocketAddress> future = dispatcher.execute(op)
-            .thenApply(dispatcher::unresolvedAddressForChannel)
+      CompletableFuture<Channel> future = dispatcher.execute(op)
             .toCompletableFuture();
       if (remoteCache instanceof InvalidatedNearRemoteCache) {
          future = future.thenApply(socketAddress -> {
