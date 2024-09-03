@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.assertj.core.api.Assertions;
 import org.infinispan.client.hotrod.DataFormat;
 import org.infinispan.client.hotrod.exceptions.TransportException;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.CacheUnmarshaller;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
@@ -91,7 +92,7 @@ public class CrashMidOperationTest extends AbstractRetryTest {
       }
 
       @Override
-      public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+      public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
          if (channelRef.compareAndSet(null, channel)) {
             try {
                firstOp.await();

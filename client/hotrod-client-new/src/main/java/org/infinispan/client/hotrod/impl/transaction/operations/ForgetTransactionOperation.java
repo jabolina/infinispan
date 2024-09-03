@@ -4,6 +4,7 @@ import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
 import org.infinispan.client.hotrod.impl.operations.AbstractNoCacheHotRodOperation;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.CacheUnmarshaller;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
@@ -28,7 +29,7 @@ public class ForgetTransactionOperation extends AbstractNoCacheHotRodOperation<V
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ByteBufUtil.writeXid(buf, xid);
    }
 

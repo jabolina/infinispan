@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit;
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.VersionedOperationResponse;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
-import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
 import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
 
 import io.netty.buffer.ByteBuf;
@@ -18,22 +17,22 @@ import io.netty.channel.Channel;
  * @author Mircea.Markus@jboss.com
  * @since 4.1
  */
-public class ReplaceIfUnmodifiedOperation<V> extends AbstractKeyValueOperation<VersionedOperationResponse<V>> {
+public class ReplaceIfUnmodifiedOperation<K, V> extends AbstractKeyValueOperation<K, V, VersionedOperationResponse<V>> {
    private final long version;
 
-   public ReplaceIfUnmodifiedOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, byte[] value,
+   public ReplaceIfUnmodifiedOperation(InternalRemoteCache<?, ?> remoteCache, K key, V value,
                                        long lifespan, TimeUnit lifespanTimeUnit, long maxIdle, TimeUnit maxIdleTimeUnit,
                                        long version) {
-      super(remoteCache, keyBytes, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
+      super(remoteCache, key, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
       this.version = version;
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
-      ByteBufUtil.writeArray(buf, keyBytes);
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
+      marshaller.writeKey(buf, key);
       codec.writeExpirationParams(buf, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
       buf.writeLong(version);
-      ByteBufUtil.writeArray(buf, valueBytes);
+      marshaller.writeValue(buf, value);
    }
 
    @Override

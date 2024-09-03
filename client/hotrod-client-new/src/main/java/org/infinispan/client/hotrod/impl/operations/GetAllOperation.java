@@ -28,18 +28,18 @@ public class GetAllOperation<K, V> extends HotRodBulkOperation<Map<K, V>, GetAll
    private Map<K, V> result;
    private int size = -1;
 
-   public GetAllOperation(InternalRemoteCache<?, ?> remoteCache, Set<byte[]> keys) {
+   public GetAllOperation(InternalRemoteCache<?, ?> remoteCache, Set<K> keys) {
       super(remoteCache);
       this.keys = keys;
    }
 
-   protected final Set<byte[]> keys;
+   protected final Set<K> keys;
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ByteBufUtil.writeVInt(buf, keys.size());
-      for (byte[] key : keys) {
-         ByteBufUtil.writeArray(buf, key);
+      for (K key : keys) {
+         marshaller.writeKey(buf, key);
       }
    }
 
@@ -80,17 +80,17 @@ public class GetAllOperation<K, V> extends HotRodBulkOperation<Map<K, V>, GetAll
 
    @Override
    public Map<SocketAddress, GetAllOperation<K, V>> operations(Function<Object, SocketAddress> mapper) {
-      Map<SocketAddress, Set<byte[]>> split = new HashMap<>();
-      for (byte[] key : keys) {
+      Map<SocketAddress, Set<K>> split = new HashMap<>();
+      for (K key : keys) {
          SocketAddress target = mapper.apply(key);
-         Set<byte[]> segment = split.computeIfAbsent(target, ignore -> new HashSet<>());
+         Set<K> segment = split.computeIfAbsent(target, ignore -> new HashSet<>());
          segment.add(key);
       }
       return split.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> newInstance(e.getValue())));
    }
 
-   private GetAllOperation<K, V> newInstance(Set<byte[]> subset) {
+   private GetAllOperation<K, V> newInstance(Set<K> subset) {
       return new GetAllOperation<>(internalRemoteCache, subset);
    }
 

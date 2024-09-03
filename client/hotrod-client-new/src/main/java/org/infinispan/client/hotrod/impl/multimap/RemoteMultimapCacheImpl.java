@@ -16,12 +16,8 @@ import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
-import org.infinispan.client.hotrod.marshall.MarshallerUtil;
 import org.infinispan.client.hotrod.multimap.MetadataCollection;
 import org.infinispan.client.hotrod.multimap.RemoteMultimapCache;
-import org.infinispan.commons.marshall.AdaptiveBufferSizePredictor;
-import org.infinispan.commons.marshall.BufferSizePredictor;
-import org.infinispan.commons.marshall.Marshaller;
 
 /**
  * Remote implementation of {@link RemoteMultimapCache}
@@ -37,16 +33,11 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
    private final RemoteCacheManager remoteCacheManager;
    private MultimapOperationsFactory operationsFactory;
    private OperationDispatcher dispatcher;
-   private Marshaller marshaller;
-   private final BufferSizePredictor keySizePredictor = new AdaptiveBufferSizePredictor();
-   private final BufferSizePredictor valueSizePredictor = new AdaptiveBufferSizePredictor();
    private final boolean supportsDuplicates;
 
    public void init() {
-      operationsFactory = new DefaultMultimapOperationsFactory(cache, remoteCacheManager.getMarshaller(),
-            new AdaptiveBufferSizePredictor(), new AdaptiveBufferSizePredictor());
+      operationsFactory = new DefaultMultimapOperationsFactory(cache);
       dispatcher = cache.getDispatcher();
-      this.marshaller = remoteCacheManager.getMarshaller();
    }
 
    public RemoteMultimapCacheImpl(RemoteCacheManager rcm, RemoteCache<K, Collection<V>> cache) {
@@ -132,8 +123,7 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          log.tracef("About to call contains (V): (%s)", value);
       }
       assertRemoteCacheManagerIsStarted();
-      byte[] marshallValue = MarshallerUtil.obj2bytes(marshaller, value, valueSizePredictor);
-      HotRodOperation<Boolean> containsValueOperation = operationsFactory.newContainsValueOperation(marshallValue, supportsDuplicates);
+      HotRodOperation<Boolean> containsValueOperation = operationsFactory.newContainsValueOperation(value, supportsDuplicates);
       return dispatcher.execute(containsValueOperation).toCompletableFuture();
    }
 

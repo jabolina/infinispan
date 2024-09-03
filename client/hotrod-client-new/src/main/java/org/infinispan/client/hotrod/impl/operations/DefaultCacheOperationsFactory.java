@@ -35,7 +35,7 @@ public class DefaultCacheOperationsFactory implements CacheOperationsFactory {
    @Override
    public <V> HotRodOperation<V> newGetOperation(Object key) {
       // TODO: need to support when storage is object based
-      return new GetOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key));
+      return new GetOperation<>(remoteCache, key);
    }
 
    @Override
@@ -90,39 +90,35 @@ public class DefaultCacheOperationsFactory implements CacheOperationsFactory {
    @Override
    public <V, K> HotRodOperation<V> newPutKeyValueOperation(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
       // TODO: need to support when storage is object based
-      return new PutOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key),
-            remoteCache.getDataFormat().valueToBytes(value), lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      return new PutOperation<>(remoteCache, key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override
    public <V> HotRodOperation<V> newRemoveOperation(Object key) {
-      return new RemoveOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key));
+      return new RemoveOperation<>(remoteCache, key);
    }
 
    @Override
    public <K> HotRodOperation<Boolean> newContainsKeyOperation(K key) {
-      return new ContainsKeyOperation(remoteCache, remoteCache.getDataFormat().keyToBytes(key));
+      return new ContainsKeyOperation<>(remoteCache, key);
    }
 
    @Override
-   public <V, K> HotRodOperation<V> newReplaceOperation(K key, V valueBytes, long lifespan, TimeUnit lifespanUnit,
+   public <V, K> HotRodOperation<V> newReplaceOperation(K key, V value, long lifespan, TimeUnit lifespanUnit,
                                                         long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-      return new ReplaceOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key),
-            remoteCache.getDataFormat().valueToBytes(key), lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      return new ReplaceOperation<>(remoteCache, key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override
    public <V, K> HotRodOperation<V> newPutIfAbsentOperation(K key, V value, long lifespan, TimeUnit lifespanUnit,
                                                             long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-      return new PutIfAbsentOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key),
-            remoteCache.getDataFormat().valueToBytes(value), lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      return new PutIfAbsentOperation<>(remoteCache, key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override
    public <V, K> HotRodOperation<V> newPutIfAbsentOperation(K key, V value, long lifespan, TimeUnit lifespanUnit,
                                                             long maxIdleTime, TimeUnit maxIdleTimeUnit, Flag... flags) {
-      return new PutIfAbsentOperation<>(remoteCache.withFlags(flags), remoteCache.getDataFormat().keyToBytes(key),
-            remoteCache.getDataFormat().valueToBytes(value), lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      return new PutIfAbsentOperation<>(remoteCache.withFlags(flags), key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override
@@ -136,36 +132,35 @@ public class DefaultCacheOperationsFactory implements CacheOperationsFactory {
    }
 
    @Override
-   public PutAllOperation newPutAllOperation(Map<byte[], byte[]> byteMap, long lifespan, TimeUnit lifespanUnit,
-                                             long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-      return new PutAllOperation(remoteCache, byteMap, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+   public <K, V> PutAllOperation<K, V> newPutAllOperation(Map<? extends K, ? extends V> data, long lifespan,
+                                                          TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+      return new PutAllOperation<>(remoteCache, data, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override
    public <V, K> HotRodOperation<MetadataValue<V>> newGetWithMetadataOperation(K key) {
-      return new GetWithMetadataOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key), null);
+      return new GetWithMetadataOperation<>(remoteCache, key, null);
    }
 
    @Override
-   public <V, K> GetWithMetadataOperation<V> newGetWithMetadataOperation(K key, SocketAddress preferredAddres) {
-      return new GetWithMetadataOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key), preferredAddres);
+   public <V, K> GetWithMetadataOperation<K, V> newGetWithMetadataOperation(K key, SocketAddress preferredAddres) {
+      return new GetWithMetadataOperation<>(remoteCache, key, preferredAddres);
    }
 
    @Override
    public <V, K> HotRodOperation<VersionedOperationResponse<V>> newReplaceIfUnmodifiedOperation(K key, V value, long lifespan,
                                                                                                 TimeUnit lifespanTimeUnit, long maxIdle,
                                                                                                 TimeUnit maxIdleTimeUnit, long version) {
-      return new ReplaceIfUnmodifiedOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key),
-            remoteCache.getDataFormat().valueToBytes(key), lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit, version);
+      return new ReplaceIfUnmodifiedOperation<>(remoteCache, key, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit, version);
    }
 
    @Override
    public <V, K> HotRodOperation<VersionedOperationResponse<V>> newRemoveIfUnmodifiedOperation(K key, long version) {
-      return new RemoveIfUnmodifiedOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key), version);
+      return new RemoveIfUnmodifiedOperation<>(remoteCache, key, version);
    }
 
    @Override
-   public <K, V> GetAllOperation<K, V> newGetAllOperation(Set<byte[]> byteKeys) {
+   public <K, V> GetAllOperation<K, V> newGetAllOperation(Set<K> byteKeys) {
       return new GetAllOperation<>(remoteCache, byteKeys);
    }
 

@@ -32,7 +32,7 @@ public class NoCachePrepareTransactionOperation extends AbstractNoCacheHotRodOpe
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       PrepareTransactionOperation.writeOperationRequest(buf, codec, xid, onePhaseCommit, recoverable, timeoutMs, modifications);
    }
 

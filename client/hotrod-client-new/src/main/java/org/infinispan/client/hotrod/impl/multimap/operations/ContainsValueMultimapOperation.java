@@ -7,10 +7,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.operations.AbstractCacheOperation;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.CacheUnmarshaller;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
-import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
 import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
 
 import io.netty.buffer.ByteBuf;
@@ -23,16 +23,16 @@ import io.netty.channel.Channel;
  * @author Katia Aresti, karesti@redhat.com
  * @since 9.2
  */
-public class ContainsValueMultimapOperation extends AbstractCacheOperation<Boolean> {
+public class ContainsValueMultimapOperation<V> extends AbstractCacheOperation<Boolean> {
 
-   protected final byte[] value;
+   protected final V value;
    private final long lifespan;
    private final long maxIdle;
    private final TimeUnit lifespanTimeUnit;
    private final TimeUnit maxIdleTimeUnit;
    private final boolean supportsDuplicates;
 
-   protected ContainsValueMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] value,
+   protected ContainsValueMultimapOperation(InternalRemoteCache<?, ?> remoteCache, V value,
                                             long lifespan, TimeUnit lifespanTimeUnit, long maxIdle,
                                             TimeUnit maxIdleTimeUnit, boolean supportsDuplicates) {
       super(remoteCache);
@@ -45,9 +45,9 @@ public class ContainsValueMultimapOperation extends AbstractCacheOperation<Boole
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       codec.writeExpirationParams(buf, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
-      ByteBufUtil.writeArray(buf, value);
+      marshaller.writeValue(buf, value);
       codec.writeMultimapSupportDuplicates(buf, supportsDuplicates);
    }
 

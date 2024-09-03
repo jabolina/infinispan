@@ -4,27 +4,26 @@ import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.VersionedOperationResponse;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
-import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
-public abstract class AbstractKeyOperation<V> extends AbstractCacheOperation<V> {
-   protected final byte[] keyBytes;
+public abstract class AbstractKeyOperation<K, R> extends AbstractCacheOperation<R> {
+   protected final K key;
 
-   protected AbstractKeyOperation(InternalRemoteCache<?, ?> internalRemoteCache, byte[] keyBytes) {
+   protected AbstractKeyOperation(InternalRemoteCache<?, ?> internalRemoteCache, K key) {
       super(internalRemoteCache);
-      this.keyBytes = keyBytes;
+      this.key = key;
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
-      ByteBufUtil.writeArray(buf, keyBytes);
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
+      marshaller.writeKey(buf, key);
    }
 
    @Override
    public Object getRoutingObject() {
-      return keyBytes;
+      return key;
    }
 
    protected <T> T returnPossiblePrevValue(ByteBuf buf, short status, Codec codec, CacheUnmarshaller unmarshaller) {

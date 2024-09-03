@@ -26,12 +26,12 @@ import net.jcip.annotations.Immutable;
  * @since 9.2
  */
 @Immutable
-public class GetKeyMultimapOperation<V> extends AbstractMultimapKeyOperation<Collection<V>> {
+public class GetKeyMultimapOperation<K, V> extends AbstractMultimapKeyOperation<K, Collection<V>> {
    private int size;
    private Collection<V> result;
 
-   public GetKeyMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, boolean supportsDuplicates) {
-      super(remoteCache, keyBytes, supportsDuplicates);
+   public GetKeyMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key, boolean supportsDuplicates) {
+      super(remoteCache, key, supportsDuplicates);
    }
 
    @Override

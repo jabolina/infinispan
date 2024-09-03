@@ -63,9 +63,9 @@ public class TelemetryCacheOperationsFactory extends DelegatingCacheOperationsFa
    }
 
    @Override
-   public PutAllOperation newPutAllOperation(Map<byte[], byte[]> byteMap, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+   public <K, V> PutAllOperation<K, V> newPutAllOperation(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
       // TODO: look into how to handle for this as this most likely was not working properly with the split
-      return super.newPutAllOperation(byteMap, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      return super.newPutAllOperation(data, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override

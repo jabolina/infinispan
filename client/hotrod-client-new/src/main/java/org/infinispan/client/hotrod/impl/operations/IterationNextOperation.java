@@ -45,7 +45,7 @@ public class IterationNextOperation<K, E> extends AbstractCacheOperation<Iterati
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ByteBufUtil.writeArray(buf, iterationId);
    }
 

@@ -61,12 +61,12 @@ public interface CacheOperationsFactory {
 
    HotRodOperation<Integer> newSizeOperation();
 
-   PutAllOperation newPutAllOperation(Map<byte[], byte[]> byteMap, long lifespan, TimeUnit lifespanUnit,
-                                      long maxIdleTime, TimeUnit maxIdleTimeUnit);
+   <K, V> PutAllOperation<K, V> newPutAllOperation(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit,
+                                                   long maxIdleTime, TimeUnit maxIdleTimeUnit);
 
    <V, K> HotRodOperation<MetadataValue<V>> newGetWithMetadataOperation(K key);
 
-   <V, K> GetWithMetadataOperation<V> newGetWithMetadataOperation(K key, SocketAddress preferredAddres);
+   <V, K> GetWithMetadataOperation<K, V> newGetWithMetadataOperation(K key, SocketAddress preferredAddres);
 
    <V, K> HotRodOperation<VersionedOperationResponse<V>> newReplaceIfUnmodifiedOperation(K key, V value, long lifespan,
                                                                                          TimeUnit lifespanTimeUnit, long maxIdle,
@@ -74,7 +74,7 @@ public interface CacheOperationsFactory {
 
    <V, K> HotRodOperation<VersionedOperationResponse<V>> newRemoveIfUnmodifiedOperation(K key, long version);
 
-   <K, V> GetAllOperation<K, V> newGetAllOperation(Set<byte[]> byteKeys);
+   <K, V> GetAllOperation<K, V> newGetAllOperation(Set<K> keys);
 
    HotRodOperation<Void> newUpdateBloomFilterOperation(byte[] bloomFilterBits);
 

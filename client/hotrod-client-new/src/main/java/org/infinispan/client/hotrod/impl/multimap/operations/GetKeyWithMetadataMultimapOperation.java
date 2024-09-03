@@ -29,12 +29,11 @@ import net.jcip.annotations.Immutable;
  * @since 9.2
  */
 @Immutable
-public class GetKeyWithMetadataMultimapOperation<V> extends AbstractMultimapKeyOperation<MetadataCollection<V>> {
+public class GetKeyWithMetadataMultimapOperation<K, V> extends AbstractMultimapKeyOperation<K, MetadataCollection<V>> {
    private static final Log log = LogFactory.getLog(GetKeyWithMetadataMultimapOperation.class);
 
-   public GetKeyWithMetadataMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes,
-                                              boolean supportsDuplicates) {
-      super(remoteCache, keyBytes, supportsDuplicates);
+   public GetKeyWithMetadataMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key, boolean supportsDuplicates) {
+      super(remoteCache, key, supportsDuplicates);
    }
 
    @Override

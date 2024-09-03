@@ -8,7 +8,6 @@ import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -284,7 +283,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public RetryAwareCompletionStage<MetadataValue<V>> getWithMetadataAsync(K key, SocketAddress preferredAddres) {
       assertRemoteCacheManagerIsStarted();
-      GetWithMetadataOperation<V> op = operationsFactory.newGetWithMetadataOperation(key, preferredAddres);
+      GetWithMetadataOperation<K, V> op = operationsFactory.newGetWithMetadataOperation(key, preferredAddres);
       dispatcher.execute(op);
       // Note this is a special case
       return op;
@@ -296,11 +295,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       if (log.isTraceEnabled()) {
          log.tracef("About to putAll entries (%s) lifespan:%d (%s), maxIdle:%d (%s)", map, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
       }
-      Map<byte[], byte[]> byteMap = new HashMap<>();
-      for (Entry<? extends K, ? extends V> entry : map.entrySet()) {
-         byteMap.put(keyToBytes(entry.getKey()), valueToBytes(entry.getValue()));
-      }
-      PutAllOperation op = operationsFactory.newPutAllOperation(byteMap, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      PutAllOperation<K, V> op = operationsFactory.newPutAllOperation(map, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
       return dispatcher.executeBulk(op).toCompletableFuture();
    }
 
@@ -534,11 +529,8 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       if (log.isTraceEnabled()) {
          log.tracef("About to getAll entries (%s)", keys);
       }
-      Set<byte[]> byteKeys = new HashSet<>(keys.size());
-      for (Object key : keys) {
-         byteKeys.add(keyToBytes(key));
-      }
-      GetAllOperation<K, V> op = operationsFactory.newGetAllOperation(byteKeys);
+      @SuppressWarnings("unchecked")
+      GetAllOperation<K, V> op = operationsFactory.newGetAllOperation((Set<K>) keys);
       return dispatcher.executeBulk(op)
             .thenApply(Collections::unmodifiableMap)
             .toCompletableFuture();

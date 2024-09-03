@@ -22,7 +22,7 @@ public class AddBloomNearCacheClientListenerOperation extends ClientListenerOper
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ByteBufUtil.writeArray(buf, listenerId);
       codec.writeBloomFilter(buf, bloomFilterBits);
    }

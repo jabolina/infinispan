@@ -18,14 +18,14 @@ import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
-public class PutAllOperation extends HotRodBulkOperation<Void, PutAllOperation> {
-   protected final Map<byte[], byte[]> map;
+public class PutAllOperation<K, V> extends HotRodBulkOperation<Void, PutAllOperation<K, V>> {
+   protected final Map<? extends K, ? extends V> map;
    protected final long lifespan;
    private final TimeUnit lifespanTimeUnit;
    protected final long maxIdle;
    private final TimeUnit maxIdleTimeUnit;
 
-   public PutAllOperation(InternalRemoteCache<?, ?> remoteCache, Map<byte[], byte[]> map,
+   public PutAllOperation(InternalRemoteCache<?, ?> remoteCache, Map<? extends K, ? extends V> map,
                           long lifespan, TimeUnit lifespanTimeUnit, long maxIdle, TimeUnit maxIdleTimeUnit) {
       super(remoteCache);
       this.map = map;
@@ -36,12 +36,12 @@ public class PutAllOperation extends HotRodBulkOperation<Void, PutAllOperation> 
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       codec.writeExpirationParams(buf, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
       ByteBufUtil.writeVInt(buf, map.size());
-      for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
-         ByteBufUtil.writeArray(buf, entry.getKey());
-         ByteBufUtil.writeArray(buf, entry.getValue());
+      for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
+         marshaller.writeKey(buf, entry.getKey());
+         marshaller.writeValue(buf, entry.getValue());
       }
    }
 
@@ -66,12 +66,12 @@ public class PutAllOperation extends HotRodBulkOperation<Void, PutAllOperation> 
    }
 
    @Override
-   public Map<SocketAddress, PutAllOperation> operations(Function<Object, SocketAddress> mapper) {
-      Map<SocketAddress, Map<byte[], byte[]>> split = new HashMap<>();
+   public Map<SocketAddress, PutAllOperation<K, V>> operations(Function<Object, SocketAddress> mapper) {
+      Map<SocketAddress, Map<K, V>> split = new HashMap<>();
 
-      for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
+      for (Map.Entry<? extends K, ? extends V> entry : map.entrySet()) {
          SocketAddress target = mapper.apply(entry.getKey());
-         Map<byte[], byte[]> segment = split.computeIfAbsent(target, ignore -> new HashMap<>());
+         Map<K, V> segment = split.computeIfAbsent(target, ignore -> new HashMap<>());
          segment.put(entry.getKey(), entry.getValue());
       }
 
@@ -79,8 +79,8 @@ public class PutAllOperation extends HotRodBulkOperation<Void, PutAllOperation> 
             .collect(Collectors.toMap(Map.Entry::getKey, e -> newInstance(e.getValue())));
    }
 
-   private PutAllOperation newInstance(Map<byte[], byte[]> content) {
-      return new PutAllOperation(internalRemoteCache, content, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
+   private PutAllOperation<K, V> newInstance(Map<K, V> content) {
+      return new PutAllOperation<>(internalRemoteCache, content, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
    }
 
    @Override

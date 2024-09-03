@@ -117,8 +117,9 @@ public abstract class DelegatingCacheOperationsFactory implements CacheOperation
    }
 
    @Override
-   public PutAllOperation newPutAllOperation(Map<byte[], byte[]> byteMap, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-      return delegate.newPutAllOperation(byteMap, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+   public <K, V> PutAllOperation<K, V> newPutAllOperation(Map<? extends K, ? extends V> data, long lifespan,
+                                                          TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+      return delegate.newPutAllOperation(data, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override
@@ -127,7 +128,7 @@ public abstract class DelegatingCacheOperationsFactory implements CacheOperation
    }
 
    @Override
-   public <V, K> GetWithMetadataOperation<V> newGetWithMetadataOperation(K key, SocketAddress preferredAddres) {
+   public <V, K> GetWithMetadataOperation<K, V> newGetWithMetadataOperation(K key, SocketAddress preferredAddres) {
       return delegate.newGetWithMetadataOperation(key, preferredAddres);
    }
 
@@ -142,8 +143,8 @@ public abstract class DelegatingCacheOperationsFactory implements CacheOperation
    }
 
    @Override
-   public <K, V> GetAllOperation<K, V> newGetAllOperation(Set<byte[]> byteKeys) {
-      return delegate.newGetAllOperation(byteKeys);
+   public <K, V> GetAllOperation<K, V> newGetAllOperation(Set<K> keys) {
+      return delegate.newGetAllOperation(keys);
    }
 
    @Override

@@ -31,7 +31,7 @@ public class RemoveClientListenerOperation extends AbstractCacheOperation<Void> 
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ByteBufUtil.writeArray(buf, listenerId);
    }
 

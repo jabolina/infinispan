@@ -13,7 +13,7 @@ import io.netty.channel.Channel;
 
 // Extends CompletableFuture to reduce allocation size by not needed additional object header info
 public abstract class HotRodOperation<T> extends CompletableFuture<T> implements HotRodConstants {
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       // Do nothing by default
    }
 

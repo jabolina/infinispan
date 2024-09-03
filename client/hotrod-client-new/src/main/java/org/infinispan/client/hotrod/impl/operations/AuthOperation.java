@@ -24,7 +24,7 @@ public class AuthOperation extends AbstractNoCacheHotRodOperation<byte[]> {
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       byte[] saslMechBytes = saslMechanism.getBytes(HOTROD_STRING_CHARSET);
       ByteBufUtil.writeArray(buf, saslMechBytes);
       ByteBufUtil.writeArray(buf, response);

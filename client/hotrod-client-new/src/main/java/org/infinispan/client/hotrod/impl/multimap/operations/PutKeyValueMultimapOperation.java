@@ -23,11 +23,11 @@ import net.jcip.annotations.Immutable;
  * @since 9.2
  */
 @Immutable
-public class PutKeyValueMultimapOperation extends AbstractMultimapKeyValueOperation<Void> {
+public class PutKeyValueMultimapOperation<K, V> extends AbstractMultimapKeyValueOperation<K, V, Void> {
 
-   public PutKeyValueMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, byte[] value, long lifespan,
+   public PutKeyValueMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key, V value, long lifespan,
                                        TimeUnit lifespanTimeUnit, long maxIdle, TimeUnit maxIdleTimeUnit, boolean supportsDuplicates) {
-      super(remoteCache, keyBytes, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit, supportsDuplicates);
+      super(remoteCache, key, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit, supportsDuplicates);
    }
 
    @Override

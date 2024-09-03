@@ -9,6 +9,7 @@ import java.util.function.Function;
 
 import org.infinispan.client.hotrod.exceptions.TransportException;
 import org.infinispan.client.hotrod.impl.ClientTopology;
+import org.infinispan.client.hotrod.impl.operations.ByteBufCacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.logging.Log;
@@ -27,6 +28,7 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
    public static final AttributeKey<OperationChannel> OPERATION_CHANNEL_ATTRIBUTE_KEY = AttributeKey.newInstance("hotrod-operation");
 
    private final Runnable SEND_OPERATIONS = this::sendOperations;
+   private final ByteBufCacheMarshaller marshaller = new ByteBufCacheMarshaller();
    private final SocketAddress address;
    private final ChannelInitializer newChannelInvoker;
    // TODO: should we use AtomicFieldUpdate with Boolean?
@@ -119,7 +121,8 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
       long messageId = headerDecoder.registerOperation(operation);
       ByteBuf buffer = channel.alloc().buffer();
       codec.writeHeader(buffer, messageId, currentCacheTopologyFunction.apply(operation.getCacheName()), operation);
-      operation.writeOperationRequest(channel, buffer, codec);
+      marshaller.setDataFormat(operation.getDataFormat());
+      operation.writeOperationRequest(channel, buffer, codec, marshaller);
       channel.writeAndFlush(buffer, channel.voidPromise());
    }
 
@@ -197,7 +200,8 @@ public class OperationChannel extends CompletableFuture<Void> implements Message
          }
          long messageId = headerDecoder.registerOperation(operation);
          codec.writeHeader(buffer, messageId, currentCacheTopologyFunction.apply(operation.getCacheName()), operation);
-         operation.writeOperationRequest(channel, buffer, codec);
+         marshaller.setDataFormat(operation.getDataFormat());
+         operation.writeOperationRequest(channel, buffer, codec, marshaller);
       } catch (Throwable t) {
          operation.completeExceptionally(t);
       }

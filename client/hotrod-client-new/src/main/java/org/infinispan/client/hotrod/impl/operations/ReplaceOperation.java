@@ -17,11 +17,11 @@ import net.jcip.annotations.Immutable;
  * @since 4.1
  */
 @Immutable
-public class ReplaceOperation<V> extends AbstractKeyValueOperation<V> {
+public class ReplaceOperation<K, V> extends AbstractKeyValueOperation<K, V, V> {
 
-   public ReplaceOperation(InternalRemoteCache<?, ?> cache, byte[] keyBytes, byte[] value,
+   public ReplaceOperation(InternalRemoteCache<?, ?> cache, K key, V value,
                            long lifespan, TimeUnit lifespanTimeUnit, long maxIdle, TimeUnit maxIdleTimeUnit) {
-      super(cache, keyBytes, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
+      super(cache, key, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
    }
 
    @Override

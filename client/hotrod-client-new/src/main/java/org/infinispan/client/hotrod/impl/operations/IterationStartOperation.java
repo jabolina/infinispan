@@ -35,7 +35,7 @@ public class IterationStartOperation extends AbstractCacheOperation<IterationSta
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       codec.writeIteratorStartOperation(buf, segments, filterConverterFactory, batchSize, metadata, filterParameters);
    }
 

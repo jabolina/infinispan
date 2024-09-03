@@ -7,13 +7,13 @@ import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
 
 import io.netty.buffer.ByteBuf;
 
-public class GetOperation<V> extends AbstractKeyOperation<V> {
-   public GetOperation(InternalRemoteCache<?, ?> internalRemoteCache, byte[] keyBytes) {
-      super(internalRemoteCache, keyBytes);
+public class GetOperation<K, R> extends AbstractKeyOperation<K, R> {
+   public GetOperation(InternalRemoteCache<?, ?> internalRemoteCache, K key) {
+      super(internalRemoteCache, key);
    }
 
    @Override
-   public V createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec, CacheUnmarshaller unmarshaller) {
+   public R createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec, CacheUnmarshaller unmarshaller) {
       if (!HotRodConstants.isNotExist(status) && HotRodConstants.isSuccess(status)) {
          return unmarshaller.readValue(buf);
       }

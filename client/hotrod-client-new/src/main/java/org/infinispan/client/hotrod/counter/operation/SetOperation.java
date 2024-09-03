@@ -1,6 +1,7 @@
 package org.infinispan.client.hotrod.counter.operation;
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.CacheUnmarshaller;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
@@ -29,8 +30,8 @@ public class SetOperation extends BaseCounterOperation<Long> {
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
-      super.writeOperationRequest(channel, buf, codec);
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
+      super.writeOperationRequest(channel, buf, codec, marshaller);
       buf.writeLong(value);
    }
 

@@ -18,9 +18,9 @@ import io.netty.buffer.ByteBuf;
  * @author Katia Aresti, karesti@redhat.com
  * @since 9.2
  */
-public class ContainsKeyMultimapOperation extends AbstractMultimapKeyOperation<Boolean> {
-   public ContainsKeyMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, boolean supportsDuplicates) {
-      super(remoteCache, keyBytes, supportsDuplicates);
+public class ContainsKeyMultimapOperation<K> extends AbstractMultimapKeyOperation<K, Boolean> {
+   public ContainsKeyMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key, boolean supportsDuplicates) {
+      super(remoteCache, key, supportsDuplicates);
    }
 
    @Override

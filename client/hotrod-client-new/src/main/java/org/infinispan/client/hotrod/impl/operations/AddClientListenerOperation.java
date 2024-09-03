@@ -34,7 +34,7 @@ public class AddClientListenerOperation extends ClientListenerOperation {
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ClientListener clientListener = extractClientListener();
       ByteBufUtil.writeArray(buf, listenerId);
       codec.writeClientListenerParams(buf, clientListener, filterFactoryParams, converterFactoryParams);

@@ -18,13 +18,13 @@ import io.netty.buffer.ByteBuf;
  * @author Mircea.Markus@jboss.com
  * @since 4.1
  */
-public class PutIfAbsentOperation<V> extends AbstractKeyValueOperation<V> {
+public class PutIfAbsentOperation<K, V> extends AbstractKeyValueOperation<K, V, V> {
 
    private static final BasicLogger log = LogFactory.getLog(PutIfAbsentOperation.class);
 
-   public PutIfAbsentOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, byte[] value, long lifespan,
+   public PutIfAbsentOperation(InternalRemoteCache<?, ?> remoteCache, K key, V value, long lifespan,
                                TimeUnit lifespanTimeUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-      super(remoteCache, keyBytes, value, lifespan, lifespanTimeUnit, maxIdleTime, maxIdleTimeUnit);
+      super(remoteCache, key, value, lifespan, lifespanTimeUnit, maxIdleTime, maxIdleTimeUnit);
    }
 
    @Override

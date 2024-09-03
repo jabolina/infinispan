@@ -9,6 +9,7 @@ import javax.transaction.xa.Xid;
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.operations.AbstractCacheOperation;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.CacheUnmarshaller;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transaction.entry.Modification;
@@ -76,7 +77,7 @@ public class PrepareTransactionOperation extends AbstractCacheOperation<Integer>
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       writeOperationRequest(buf, codec, xid, onePhaseCommit, recoverable, timeoutMs, modifications);
    }
 

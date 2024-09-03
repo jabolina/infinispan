@@ -131,7 +131,7 @@ public final class DataFormat {
       @Override
       public <T> T bytesToValue(InputStream inputStream, ClassAllowList allowList) {
          Marshaller valueMarshaller = resolveValueMarshaller();
-         return bytes2obj(keyMarshaller, inputStream, isObjectStorage(), allowList);
+         return bytes2obj(valueMarshaller, inputStream, isObjectStorage(), allowList);
       }
 
       public boolean match(DataFormatImpl other) {

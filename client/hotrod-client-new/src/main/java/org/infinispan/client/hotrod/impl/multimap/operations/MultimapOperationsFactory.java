@@ -23,7 +23,7 @@ public interface MultimapOperationsFactory {
 
    <K> HotRodOperation<Boolean> newContainsKeyOperation(K key, boolean supportsDuplicates);
 
-   HotRodOperation<Boolean> newContainsValueOperation(byte[] value, boolean supportsDuplicates);
+   <V> HotRodOperation<Boolean> newContainsValueOperation(V value, boolean supportsDuplicates);
 
    HotRodOperation<Long> newSizeOperation(boolean supportsDuplicates);
 }

@@ -49,7 +49,7 @@ public class DelegatingMultimapOperationsFactory implements MultimapOperationsFa
    }
 
    @Override
-   public HotRodOperation<Boolean> newContainsValueOperation(byte[] value, boolean supportsDuplicates) {
+   public <V> HotRodOperation<Boolean> newContainsValueOperation(V value, boolean supportsDuplicates) {
       return delegate.newContainsValueOperation(value, supportsDuplicates);
    }
 

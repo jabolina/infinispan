@@ -5,6 +5,7 @@ import static org.infinispan.client.hotrod.impl.multimap.protocol.MultimapHotRod
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.operations.AbstractCacheOperation;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.operations.CacheUnmarshaller;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
@@ -30,7 +31,7 @@ public class SizeMultimapOperation extends AbstractCacheOperation<Long> {
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       codec.writeMultimapSupportDuplicates(buf, supportsDuplicates);
    }
 

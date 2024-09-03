@@ -17,18 +17,18 @@ import net.jcip.annotations.Immutable;
  * @since 4.1
  */
 @Immutable
-public class RemoveIfUnmodifiedOperation<V> extends AbstractKeyOperation<VersionedOperationResponse<V>> {
+public class RemoveIfUnmodifiedOperation<K, V> extends AbstractKeyOperation<K, VersionedOperationResponse<V>> {
 
    private final long version;
 
-   public RemoveIfUnmodifiedOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, long version) {
-      super(remoteCache, keyBytes);
+   public RemoveIfUnmodifiedOperation(InternalRemoteCache<?, ?> remoteCache, K key, long version) {
+      super(remoteCache, key);
       this.version = version;
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
-      super.writeOperationRequest(channel, buf, codec);
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
+      super.writeOperationRequest(channel, buf, codec, marshaller);
       buf.writeLong(version);
    }
 

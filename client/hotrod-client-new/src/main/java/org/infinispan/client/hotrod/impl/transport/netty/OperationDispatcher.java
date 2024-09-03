@@ -22,6 +22,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.infinispan.client.hotrod.CacheTopologyInfo;
+import org.infinispan.client.hotrod.DataFormat;
 import org.infinispan.client.hotrod.FailoverRequestBalancingStrategy;
 import org.infinispan.client.hotrod.configuration.ClientIntelligence;
 import org.infinispan.client.hotrod.configuration.ClusterConfiguration;
@@ -239,7 +240,8 @@ public class OperationDispatcher {
       CacheInfo info = getCacheInfo(operation.getCacheName());
       if (info != null && info.getConsistentHash() != null) {
          ConsistentHash ch = info.getConsistentHash();
-         return ch::getServer;
+         DataFormat df = operation.getDataFormat();
+         return obj -> ch.getServer(df.keyToBytes(obj));
       }
 
       FailoverRequestBalancingStrategy frbs = getBalancer(operation.getCacheName());
@@ -251,7 +253,8 @@ public class OperationDispatcher {
       if (routingObj != null) {
          CacheInfo cacheInfo = getCacheInfo(operation.getCacheName());
          if (cacheInfo != null && cacheInfo.getConsistentHash() != null) {
-            SocketAddress server = cacheInfo.getConsistentHash().getServer(routingObj);
+            DataFormat df = operation.getDataFormat();
+            SocketAddress server = cacheInfo.getConsistentHash().getServer(df.keyToBytes(routingObj));
             if (server != null && (failedServers == null || !failedServers.contains(server))) {
                return executeOnSingleAddress(operation, server);
             }

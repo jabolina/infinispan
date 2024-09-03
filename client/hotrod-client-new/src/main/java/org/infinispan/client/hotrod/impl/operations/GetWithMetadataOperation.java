@@ -22,7 +22,7 @@ import io.netty.buffer.ByteBuf;
  * @author Tristan Tarrant
  * @since 5.2
  */
-public class GetWithMetadataOperation<V> extends AbstractKeyOperation<MetadataValue<V>> implements RetryAwareCompletionStage<MetadataValue<V>> {
+public class GetWithMetadataOperation<K, V> extends AbstractKeyOperation<K, MetadataValue<V>> implements RetryAwareCompletionStage<MetadataValue<V>> {
 
    private static final Log log = LogFactory.getLog(GetWithMetadataOperation.class);
 
@@ -30,8 +30,8 @@ public class GetWithMetadataOperation<V> extends AbstractKeyOperation<MetadataVa
 
    private volatile Boolean retried;
 
-   public GetWithMetadataOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, SocketAddress preferredServer) {
-      super(remoteCache, keyBytes);
+   public GetWithMetadataOperation(InternalRemoteCache<?, ?> remoteCache, K key, SocketAddress preferredServer) {
+      super(remoteCache, key);
       // We should always be passing resolved addresses here to confirm it matches
       assert !(preferredServer instanceof InetSocketAddress) || !((InetSocketAddress) preferredServer).isUnresolved();
       this.preferredServer = preferredServer;

@@ -18,13 +18,11 @@ import net.jcip.annotations.Immutable;
  * @since 4.1
  */
 @Immutable
-public class PutOperation<V> extends AbstractKeyValueOperation<V> {
-   public PutOperation(InternalRemoteCache<?, ?> cache, byte[] keyBytes, byte[] valueBytes, long lifespan,
+public class PutOperation<K, V> extends AbstractKeyValueOperation<K, V, V> {
+   public PutOperation(InternalRemoteCache<?, ?> cache, K key, V value, long lifespan,
                        TimeUnit lifespanTimeUnit, long maxIdle, TimeUnit maxIdleTimeUnit) {
-      super(cache, keyBytes, valueBytes, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
+      super(cache, key, value, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
    }
-
-
 
    @Override
    public V createResponse(ByteBuf buf, short status, HeaderDecoder decoder, Codec codec, CacheUnmarshaller unmarshaller) {

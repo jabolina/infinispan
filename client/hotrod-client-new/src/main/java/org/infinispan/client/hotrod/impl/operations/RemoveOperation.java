@@ -16,10 +16,10 @@ import net.jcip.annotations.Immutable;
  * @since 4.1
  */
 @Immutable
-public class RemoveOperation<V> extends AbstractKeyOperation<V> {
+public class RemoveOperation<K, V> extends AbstractKeyOperation<K, V> {
 
-   public RemoveOperation(InternalRemoteCache<?, ?> cache, byte[] keyBytes) {
-      super(cache, keyBytes);
+   public RemoveOperation(InternalRemoteCache<?, ?> cache, K key) {
+      super(cache, key);
    }
 
    @Override

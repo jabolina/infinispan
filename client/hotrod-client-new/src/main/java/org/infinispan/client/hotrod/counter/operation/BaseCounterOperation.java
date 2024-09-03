@@ -6,6 +6,7 @@ import java.util.Arrays;
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.operations.AbstractCacheOperation;
+import org.infinispan.client.hotrod.impl.operations.CacheMarshaller;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
 import org.infinispan.client.hotrod.logging.LogFactory;
@@ -37,7 +38,7 @@ abstract class BaseCounterOperation<T> extends AbstractCacheOperation<T> {
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       ByteBufUtil.writeString(buf, counterName);
    }
 

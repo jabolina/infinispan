@@ -16,6 +16,7 @@ import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.configuration.ClassAllowList;
+import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.marshall.AbstractMarshaller;
 import org.infinispan.commons.marshall.BufferSizePredictor;
 import org.infinispan.commons.marshall.CheckedInputStream;
@@ -156,8 +157,9 @@ public final class MarshallerUtil {
 
    public static void obj2stream(Marshaller marshaller, Object o, OutputStream stream, BufferSizePredictor sizePredictor) {
       try {
-         if (marshaller instanceof AbstractMarshaller) {
-            ((AbstractMarshaller) marshaller).objectToOutputStream(o, stream);
+         if (marshaller instanceof AbstractMarshaller am) {
+            ByteBuffer bf = am.objectToBuffer(o);
+            stream.write(bf.getBuf(), bf.getOffset(), bf.getLength());
          } else {
             byte[] bytes = marshaller.objectToByteBuffer(o, sizePredictor.nextSize(o));
             stream.write(bytes);

@@ -37,7 +37,7 @@ public final class QueryOperation<T> extends AbstractCacheOperation<BaseQueryRes
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
       QueryRequest queryRequest = new QueryRequest();
       queryRequest.setQueryString(remoteQuery.getQueryString());
 

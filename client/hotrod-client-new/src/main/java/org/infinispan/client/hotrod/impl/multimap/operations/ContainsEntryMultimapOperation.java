@@ -22,12 +22,12 @@ import net.jcip.annotations.Immutable;
  * @since 9.2
  */
 @Immutable
-public class ContainsEntryMultimapOperation extends AbstractMultimapKeyValueOperation<Boolean> {
+public class ContainsEntryMultimapOperation<K, V> extends AbstractMultimapKeyValueOperation<K, V, Boolean> {
 
-   public ContainsEntryMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes,
-                                         byte[] value, boolean supportsDuplicates) {
+   public ContainsEntryMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key,
+                                         V value, boolean supportsDuplicates) {
       // TODO: this should be refactored in https://issues.redhat.com/browse/ISPN-16469 to not have expiration
-      super(remoteCache, keyBytes, value, -1, TimeUnit.MILLISECONDS, -1, TimeUnit.MILLISECONDS, supportsDuplicates);
+      super(remoteCache, key, value, -1, TimeUnit.MILLISECONDS, -1, TimeUnit.MILLISECONDS, supportsDuplicates);
    }
 
    @Override

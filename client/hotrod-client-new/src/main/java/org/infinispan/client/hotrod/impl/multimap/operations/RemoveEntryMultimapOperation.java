@@ -22,11 +22,11 @@ import net.jcip.annotations.Immutable;
  * @since 9.2
  */
 @Immutable
-public class RemoveEntryMultimapOperation extends AbstractMultimapKeyValueOperation<Boolean> {
+public class RemoveEntryMultimapOperation<K, V> extends AbstractMultimapKeyValueOperation<K, V, Boolean> {
 
-   public RemoveEntryMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, byte[] value,
+   public RemoveEntryMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key, V value,
                                        boolean supportsDuplicates) {
-      super(remoteCache, keyBytes, value, -1, TimeUnit.MILLISECONDS, -1, TimeUnit.MILLISECONDS, supportsDuplicates);
+      super(remoteCache, key, value, -1, TimeUnit.MILLISECONDS, -1, TimeUnit.MILLISECONDS, supportsDuplicates);
    }
 
    @Override

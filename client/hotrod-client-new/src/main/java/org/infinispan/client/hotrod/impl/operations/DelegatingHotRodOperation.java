@@ -26,8 +26,8 @@ public abstract class DelegatingHotRodOperation<T> extends HotRodOperation<T> {
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
-      delegate.writeOperationRequest(channel, buf, codec);
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
+      delegate.writeOperationRequest(channel, buf, codec, marshaller);
    }
 
    @Override

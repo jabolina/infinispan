@@ -18,9 +18,9 @@ import io.netty.buffer.ByteBuf;
  * @author Katia Aresti, karesti@redhat.com
  * @since 9.2
  */
-public class RemoveKeyMultimapOperation extends AbstractMultimapKeyOperation<Boolean> {
-   public RemoveKeyMultimapOperation(InternalRemoteCache<?, ?> remoteCache, byte[] keyBytes, boolean supportsDuplicates) {
-      super(remoteCache, keyBytes, supportsDuplicates);
+public class RemoveKeyMultimapOperation<K> extends AbstractMultimapKeyOperation<K, Boolean> {
+   public RemoveKeyMultimapOperation(InternalRemoteCache<?, ?> remoteCache, K key, boolean supportsDuplicates) {
+      super(remoteCache, key, supportsDuplicates);
    }
 
    @Override

@@ -4,13 +4,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
-import org.infinispan.client.hotrod.impl.transport.netty.ByteBufUtil;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
-public abstract class AbstractKeyValueOperation<V> extends AbstractKeyOperation<V> {
-   protected final byte[] valueBytes;
+public abstract class AbstractKeyValueOperation<K, V, R> extends AbstractKeyOperation<K, R> {
+   protected final V value;
    protected final long lifespan;
 
    protected final long maxIdle;
@@ -18,11 +17,11 @@ public abstract class AbstractKeyValueOperation<V> extends AbstractKeyOperation<
    protected final TimeUnit lifespanTimeUnit;
 
    protected final TimeUnit maxIdleTimeUnit;
-   protected AbstractKeyValueOperation(InternalRemoteCache<?, ?> internalRemoteCache, byte[] keyBytes, byte[] valueBytes,
+   protected AbstractKeyValueOperation(InternalRemoteCache<?, ?> internalRemoteCache, K key, V value,
                                        long lifespan, TimeUnit lifespanTimeUnit, long maxIdle, TimeUnit maxIdleTimeUnit) {
-      super(internalRemoteCache, keyBytes);
+      super(internalRemoteCache, key);
 
-      this.valueBytes = valueBytes;
+      this.value = value;
       this.lifespan = lifespan;
       this.maxIdle = maxIdle;
       this.lifespanTimeUnit = lifespanTimeUnit;
@@ -30,9 +29,9 @@ public abstract class AbstractKeyValueOperation<V> extends AbstractKeyOperation<
    }
 
    @Override
-   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec) {
-      super.writeOperationRequest(channel, buf, codec);
+   public void writeOperationRequest(Channel channel, ByteBuf buf, Codec codec, CacheMarshaller marshaller) {
+      super.writeOperationRequest(channel, buf, codec, marshaller);
       codec.writeExpirationParams(buf, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
-      ByteBufUtil.writeArray(buf, valueBytes);
+      marshaller.writeValue(buf, value);
    }
 }
