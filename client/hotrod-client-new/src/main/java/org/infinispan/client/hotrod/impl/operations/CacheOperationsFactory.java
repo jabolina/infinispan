@@ -40,7 +40,7 @@ public interface CacheOperationsFactory {
 
    HotRodOperation<IterationEndResponse> newIterationEndOperation(byte[] iterationId);
 
-   ClearOperation newClearOperation();
+   HotRodOperation<Void> newClearOperation();
 
    <V, K> HotRodOperation<V> newPutKeyValueOperation(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit);
 
@@ -59,7 +59,7 @@ public interface CacheOperationsFactory {
 
    HotRodOperation<ServerStatistics> newStatsOperation();
 
-   SizeOperation newSizeOperation();
+   HotRodOperation<Integer> newSizeOperation();
 
    PutAllOperation newPutAllOperation(Map<byte[], byte[]> byteMap, long lifespan, TimeUnit lifespanUnit,
                                       long maxIdleTime, TimeUnit maxIdleTimeUnit);

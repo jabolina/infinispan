@@ -12,10 +12,10 @@ import io.netty.buffer.ByteBuf;
 public class CacheExecuteOperation<E> extends AbstractCacheOperation<E> {
    private final String taskName;
    private final Map<String, byte[]> marshalledParams;
-   private final Object key;
+   private final byte[] key;
 
    public CacheExecuteOperation(InternalRemoteCache<?, ?> internalRemoteCache, String taskName,
-                                Map<String, byte[]> marshalledParams, Object key) {
+                                Map<String, byte[]> marshalledParams, byte[] key) {
       super(internalRemoteCache);
       this.taskName = taskName;
       this.marshalledParams = marshalledParams;

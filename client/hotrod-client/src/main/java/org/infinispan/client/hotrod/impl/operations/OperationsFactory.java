@@ -73,7 +73,7 @@ public class OperationsFactory implements HotRodConstants {
       this.listenerNotifier = listenerNotifier;
       this.cfg = cfg;
       this.clientStatistics = clientStatistics;
-      this.telemetryService = TelemetryServiceFactory.INSTANCE.telemetryService(cfg.tracingPropagationEnabled());
+      this.telemetryService = TelemetryServiceFactory.telemetryService(cfg.tracingPropagationEnabled());
       this.flags = forceReturnValue ? flags | Flag.FORCE_RETURN_VALUE.getFlagInt() : flags;
    }
 

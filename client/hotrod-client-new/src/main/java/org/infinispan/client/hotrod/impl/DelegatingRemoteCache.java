@@ -364,18 +364,13 @@ public abstract class DelegatingRemoteCache<K, V> extends RemoteCacheSupport<K, 
    }
 
    @Override
-   public void resolveStorage(boolean objectStorage) {
-      delegate.resolveStorage(objectStorage);
+   public void resolveStorage() {
+      delegate.resolveStorage();
    }
 
    @Override
    public byte[] keyToBytes(Object o) {
       return delegate.keyToBytes(o);
-   }
-
-   @Override
-   public boolean isObjectStorage() {
-      return delegate.isObjectStorage();
    }
 
    @Override

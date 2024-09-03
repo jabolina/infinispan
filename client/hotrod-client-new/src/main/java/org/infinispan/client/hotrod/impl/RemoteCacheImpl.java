@@ -38,15 +38,12 @@ import org.infinispan.client.hotrod.filter.Filters;
 import org.infinispan.client.hotrod.impl.iteration.RemotePublisher;
 import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
-import org.infinispan.client.hotrod.impl.operations.ClearOperation;
-import org.infinispan.client.hotrod.impl.operations.DefaultCacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.GetAllOperation;
 import org.infinispan.client.hotrod.impl.operations.GetWithMetadataOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.PingResponse;
 import org.infinispan.client.hotrod.impl.operations.PutAllOperation;
 import org.infinispan.client.hotrod.impl.operations.RetryAwareCompletionStage;
-import org.infinispan.client.hotrod.impl.operations.RoutingCacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.protocol.Codec30;
 import org.infinispan.client.hotrod.impl.query.RemoteQueryFactory;
 import org.infinispan.client.hotrod.impl.transport.netty.OperationDispatcher;
@@ -85,19 +82,19 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    private final ClientListenerNotifier clientListenerNotifier;
    private final int flagInt;
    private int batchSize;
-   private volatile boolean isObjectStorage;
    private DataFormat dataFormat;
    protected ClientStatistics clientStatistics;
    private ObjectName mbeanObjectName;
    private OperationDispatcher dispatcher;
    private RemoteQueryFactory queryFactory;
 
-   public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService, boolean isObjectStorage) {
-      this(rcm, name, timeService, null, isObjectStorage);
+   public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService,
+                          Function<RemoteCacheImpl<K,V>, CacheOperationsFactory> factoryFunction) {
+      this(rcm, name, timeService, null, factoryFunction);
    }
 
    public RemoteCacheImpl(RemoteCacheManager rcm, String name, TimeService timeService, NearCacheService<K, V> nearCacheService,
-                          boolean isObjectStorage) {
+                          Function<RemoteCacheImpl<K,V>, CacheOperationsFactory> factoryFunction) {
       if (log.isTraceEnabled()) {
          log.tracef("Creating remote cache: %s", name);
       }
@@ -106,12 +103,13 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.remoteCacheManager = rcm;
       this.dataFormat = DataFormat.builder().build();
       this.clientStatistics = new ClientStatistics(rcm.getConfiguration().statistics().enabled(), timeService, nearCacheService);
-      this.operationsFactory = isObjectStorage ? new RoutingCacheOperationsFactory(new DefaultCacheOperationsFactory(this)) : new DefaultCacheOperationsFactory(this);
+      this.operationsFactory = factoryFunction.apply(this);
       this.clientListenerNotifier = rcm.getListenerNotifier();
       this.flagInt = rcm.getConfiguration().forceReturnValues() ? Flag.FORCE_RETURN_VALUE.getFlagInt() : 0;
    }
 
-   protected RemoteCacheImpl(RemoteCacheManager rcm, String name, ClientStatistics clientStatistics, boolean isObjectStorage) {
+   protected RemoteCacheImpl(RemoteCacheManager rcm, String name, ClientStatistics clientStatistics,
+                             Function<RemoteCacheImpl<K,V>, CacheOperationsFactory> factoryFunction) {
       if (log.isTraceEnabled()) {
          log.tracef("Creating remote cache: %s", name);
       }
@@ -120,7 +118,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       this.remoteCacheManager = rcm;
       this.dataFormat = DataFormat.builder().build();
       this.clientStatistics = clientStatistics;
-      this.operationsFactory = isObjectStorage ? new RoutingCacheOperationsFactory(new DefaultCacheOperationsFactory(this)) : new DefaultCacheOperationsFactory(this);
+      this.operationsFactory = factoryFunction.apply(this);
       this.clientListenerNotifier = rcm.getListenerNotifier();
       this.flagInt = rcm.getConfiguration().forceReturnValues() ? Flag.FORCE_RETURN_VALUE.getFlagInt() : 0;
    }
@@ -351,7 +349,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public CompletableFuture<Void> clearAsync() {
       assertRemoteCacheManagerIsStarted();
-      ClearOperation op = operationsFactory.newClearOperation();
+      HotRodOperation<Void> op = operationsFactory.newClearOperation();
       return dispatcher.execute(op).toCompletableFuture();
    }
 
@@ -755,11 +753,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
             marshalledParams.put(entry.getKey(), keyToBytes(entry.getValue()));
          }
       }
-      Object keyHint = null;
-      if (key != null) {
-         keyHint = isObjectStorage ? key : keyToBytes(key);
-      }
-      HotRodOperation<T> op = operationsFactory.executeOperation(taskName, marshalledParams, keyHint);
+      HotRodOperation<T> op = operationsFactory.executeOperation(taskName, marshalledParams, key);
       return await(dispatcher.execute(op));
    }
 
@@ -777,7 +771,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public <T, U> InternalRemoteCache<T, U> withDataFormat(DataFormat newDataFormat) {
       Objects.requireNonNull(newDataFormat, "Data Format must not be null")
-            .initialize(remoteCacheManager, name, isObjectStorage);
+            .initialize(remoteCacheManager, name);
       RemoteCacheImpl<T, U> instance = newInstance();
       instance.dataFormat = newDataFormat;
       return instance;
@@ -791,16 +785,15 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       return new RemoteCacheImpl<>(this, flags);
    }
 
-   public void resolveStorage(boolean objectStorage) {
-      this.isObjectStorage = objectStorage;
-      this.dataFormat.initialize(remoteCacheManager, name, isObjectStorage);
+   public void resolveStorage() {
+      this.dataFormat.initialize(remoteCacheManager, name);
    }
 
    @Override
-   public void resolveStorage(MediaType key, MediaType value, boolean objectStorage) {
+   public void resolveStorage(MediaType key, MediaType value) {
       // Set the storage first and initialize the current data format.
       // We need this to check if the key type match.
-      resolveStorage(objectStorage);
+      resolveStorage();
 
       if (key != null && key != MediaType.APPLICATION_UNKNOWN && !dataFormat.getKeyType().match(key)) {
          DataFormat.Builder server = DataFormat.builder()
@@ -811,7 +804,7 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
                .from(this.dataFormat)
                .serverDataFormat(server)
                .build();
-         resolveStorage(objectStorage);
+         resolveStorage();
 
          // Now proceed and check if the server has an available marshaller.
          // This means that the client DOES NOT have a marshaller capable of converting to the server key type.
@@ -831,10 +824,6 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
    @Override
    public boolean isTransactional() {
       return false;
-   }
-
-   public boolean isObjectStorage() {
-      return isObjectStorage;
    }
 
    @Override

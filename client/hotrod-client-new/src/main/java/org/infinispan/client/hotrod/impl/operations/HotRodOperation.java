@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.operations;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.infinispan.client.hotrod.DataFormat;
@@ -46,6 +47,10 @@ public abstract class HotRodOperation<T> extends CompletableFuture<T> implements
 
    public boolean supportRetry() {
       return true;
+   }
+
+   public Map<String, byte[]> additionalParameters() {
+      return null;
    }
 
    @Override

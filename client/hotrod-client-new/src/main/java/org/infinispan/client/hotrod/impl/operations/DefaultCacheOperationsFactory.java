@@ -45,7 +45,7 @@ public class DefaultCacheOperationsFactory implements CacheOperationsFactory {
 
    @Override
    public <T> HotRodOperation<T> executeOperation(String taskName, Map<String, byte[]> marshalledParams, Object key) {
-      return new CacheExecuteOperation<>(remoteCache, taskName, marshalledParams, key);
+      return new CacheExecuteOperation<>(remoteCache, taskName, marshalledParams, remoteCache.getDataFormat().keyToBytes(key));
    }
 
    @Override
@@ -131,7 +131,7 @@ public class DefaultCacheOperationsFactory implements CacheOperationsFactory {
    }
 
    @Override
-   public SizeOperation newSizeOperation() {
+   public HotRodOperation<Integer> newSizeOperation() {
       return new SizeOperation(remoteCache);
    }
 

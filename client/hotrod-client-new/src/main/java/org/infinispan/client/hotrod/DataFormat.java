@@ -187,15 +187,15 @@ public final class DataFormat {
    }
 
    /**
-    * @deprecated Replaced by {@link #initialize(RemoteCacheManager, String, boolean)}.
+    * @deprecated Replaced by {@link #initialize(RemoteCacheManager, String)}.
     */
    @Deprecated(forRemoval=true, since = "12.0")
-   public void initialize(RemoteCacheManager remoteCacheManager, boolean serverObjectStorage) {
+   public void initialize(RemoteCacheManager remoteCacheManager) {
       this.marshallerRegistry = remoteCacheManager.getMarshallerRegistry();
       this.defaultMarshaller = remoteCacheManager.getMarshaller();
    }
 
-   public void initialize(RemoteCacheManager remoteCacheManager, String cacheName, boolean serverObjectStorage) {
+   public void initialize(RemoteCacheManager remoteCacheManager, String cacheName) {
       this.marshallerRegistry = remoteCacheManager.getMarshallerRegistry();
       this.defaultMarshaller = remoteCacheManager.getMarshaller();
       RemoteCacheConfiguration remoteCacheConfiguration = remoteCacheManager.getConfiguration().remoteCaches().get(cacheName);

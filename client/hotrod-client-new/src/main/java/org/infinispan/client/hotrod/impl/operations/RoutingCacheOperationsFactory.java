@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.operations;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.infinispan.client.hotrod.Flag;
@@ -53,6 +54,11 @@ public class RoutingCacheOperationsFactory extends DelegatingCacheOperationsFact
    @Override
    public <K> HotRodOperation<Boolean> newContainsKeyOperation(K key) {
       return new RoutingObjectOperation<>(super.newContainsKeyOperation(key), key);
+   }
+
+   @Override
+   public <T> HotRodOperation<T> executeOperation(String taskName, Map<String, byte[]> marshalledParams, Object key) {
+      return new RoutingObjectOperation<>(super.executeOperation(taskName, marshalledParams, key), key);
    }
 
    @Override

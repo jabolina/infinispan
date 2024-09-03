@@ -72,7 +72,7 @@ public abstract class DelegatingCacheOperationsFactory implements CacheOperation
    }
 
    @Override
-   public ClearOperation newClearOperation() {
+   public HotRodOperation<Void> newClearOperation() {
       return delegate.newClearOperation();
    }
 
@@ -112,7 +112,7 @@ public abstract class DelegatingCacheOperationsFactory implements CacheOperation
    }
 
    @Override
-   public SizeOperation newSizeOperation() {
+   public HotRodOperation<Integer> newSizeOperation() {
       return delegate.newSizeOperation();
    }
 

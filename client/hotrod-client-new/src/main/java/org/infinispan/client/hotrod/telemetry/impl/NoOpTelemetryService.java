@@ -5,12 +5,14 @@ import java.util.function.Function;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 
-public class TelemetryServiceImpl implements TelemetryService {
-   public static TelemetryServiceImpl INSTANCE = new TelemetryServiceImpl();
-   private TelemetryServiceImpl() { }
+public class NoOpTelemetryService implements TelemetryService {
+   public static NoOpTelemetryService INSTANCE = new NoOpTelemetryService();
+
+   private NoOpTelemetryService() { }
+
    @Override
    public <K, V> Function<RemoteCache<K, V>, CacheOperationsFactory> wrapWithTelemetry(
          Function<RemoteCache<K, V>, CacheOperationsFactory> function) {
-      return rc -> new TelemetryCacheOperationsFactory(function.apply(rc));
+      return function;
    }
 }

@@ -12,6 +12,7 @@ import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.client.hotrod.impl.Util;
+import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.transaction.entry.TransactionEntry;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
@@ -52,8 +53,8 @@ public class TransactionalRemoteCacheImpl<K, V> extends RemoteCacheImpl<K, V> {
    // TODO: need to make this class a wrapper instead of extending
    public TransactionalRemoteCacheImpl(RemoteCacheManager rcm, String name, boolean forceReturnValue,
          boolean recoveryEnabled, TransactionManager transactionManager,
-         TransactionTable transactionTable, TimeService timeService, boolean isObjectStorage) {
-      super(rcm, name, timeService, isObjectStorage);
+         TransactionTable transactionTable, TimeService timeService, Function<RemoteCacheImpl<K, V>, CacheOperationsFactory> factoryFunction) {
+      super(rcm, name, timeService, factoryFunction);
       this.forceReturnValue = forceReturnValue;
       this.recoveryEnabled = recoveryEnabled;
       this.transactionManager = transactionManager;

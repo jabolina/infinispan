@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,9 +46,12 @@ import org.infinispan.client.hotrod.impl.InvalidatedNearRemoteCache;
 import org.infinispan.client.hotrod.impl.MarshallerRegistry;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.client.hotrod.impl.RemoteCacheManagerAdminImpl;
+import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
+import org.infinispan.client.hotrod.impl.operations.DefaultCacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.ManagerOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.PingResponse;
+import org.infinispan.client.hotrod.impl.operations.RoutingCacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
 import org.infinispan.client.hotrod.impl.transaction.SyncModeTransactionTable;
 import org.infinispan.client.hotrod.impl.transaction.TransactionTable;
@@ -59,6 +63,8 @@ import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.client.hotrod.marshall.BytesOnlyMarshaller;
 import org.infinispan.client.hotrod.near.NearCacheService;
+import org.infinispan.client.hotrod.telemetry.impl.TelemetryService;
+import org.infinispan.client.hotrod.telemetry.impl.TelemetryServiceFactory;
 import org.infinispan.client.hotrod.transaction.lookup.GenericTransactionManagerLookup;
 import org.infinispan.commons.api.CacheContainerAdmin;
 import org.infinispan.commons.configuration.StringConfiguration;
@@ -108,6 +114,7 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
    private final Map<RemoteCacheKey, RemoteCacheHolder> cacheName2RemoteCache = new HashMap<>();
    private final MarshallerRegistry marshallerRegistry = new MarshallerRegistry();
    private final Configuration configuration;
+   private final TelemetryService telemetryService;
 
    private Marshaller marshaller;
    protected OperationDispatcher dispatcher;
@@ -170,6 +177,7 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
     */
    public RemoteCacheManager(Configuration configuration, boolean start) {
       this.configuration = configuration;
+      this.telemetryService = TelemetryServiceFactory.telemetryService(configuration.tracingPropagationEnabled());
       this.counterManager = new RemoteCounterManager();
       this.syncTransactionTable = new SyncModeTransactionTable(configuration.transactionTimeout());
       this.xaTransactionTable = new XaModeTransactionTable(configuration.transactionTimeout());
@@ -210,6 +218,7 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
          }
       }
       this.configuration = builder.build();
+      this.telemetryService = TelemetryServiceFactory.telemetryService(configuration.tracingPropagationEnabled());
       this.counterManager = new RemoteCounterManager();
       this.syncTransactionTable = new SyncModeTransactionTable(configuration.transactionTimeout());
       this.xaTransactionTable = new XaModeTransactionTable(configuration.transactionTimeout());
@@ -548,18 +557,21 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
          pingResponse = PingResponse.EMPTY;
       }
 
-      boolean objectStorage = pingResponse.getKeyMediaType() == MediaType.APPLICATION_OBJECT;
+      Function<RemoteCacheImpl<K, V>, CacheOperationsFactory> factoryFunction = DefaultCacheOperationsFactory::new;
+      if (pingResponse.getKeyMediaType() == MediaType.APPLICATION_OBJECT) {
+         factoryFunction = wrapWithRouting(factoryFunction);
+      }
 
       TransactionMode transactionMode = getTransactionMode(transactionModeOverride, cacheConfiguration);
       InternalRemoteCache<K, V> remoteCache;
       if (transactionMode == TransactionMode.NONE) {
-         remoteCache = createRemoteCache(cacheName, objectStorage);
+         remoteCache = createRemoteCache(cacheName, factoryFunction);
       } else {
          if (!await(checkTransactionSupport(cacheName, managerOpFactory, dispatcher).toCompletableFuture())) {
             throw HOTROD.cacheDoesNotSupportTransactions(cacheName);
          } else {
             TransactionManager transactionManager = getTransactionManager(transactionManagerOverride, cacheConfiguration);
-            remoteCache = createRemoteTransactionalCache(cacheName, objectStorage, forceReturnValueOverride,
+            remoteCache = createRemoteTransactionalCache(cacheName, factoryFunction, forceReturnValueOverride,
                   transactionMode == TransactionMode.FULL_XA, transactionMode, transactionManager);
          }
       }
@@ -567,13 +579,18 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
       synchronized (cacheName2RemoteCache) {
          startRemoteCache(remoteCache, forceReturnValue);
          RemoteCacheHolder holder = new RemoteCacheHolder(remoteCache, forceReturnValueOverride);
-         remoteCache.resolveStorage(pingResponse.getKeyMediaType(), pingResponse.getValueMediaType(), pingResponse.isObjectStorage());
+         remoteCache.resolveStorage(pingResponse.getKeyMediaType(), pingResponse.getValueMediaType());
          cacheName2RemoteCache.putIfAbsent(key, holder);
          return remoteCache;
       }
    }
 
-   private <K, V> InternalRemoteCache<K, V> createRemoteCache(String cacheName, boolean objectStorage) {
+   static <K, V> Function<RemoteCacheImpl<K, V>, CacheOperationsFactory> wrapWithRouting(
+         Function<RemoteCacheImpl<K, V>, CacheOperationsFactory> factoryFunction) {
+      return irc -> new RoutingCacheOperationsFactory(factoryFunction.apply(irc));
+   }
+
+   private <K, V> InternalRemoteCache<K, V> createRemoteCache(String cacheName, Function<RemoteCacheImpl<K, V>, CacheOperationsFactory> factoryFunction) {
       RemoteCacheConfiguration remoteCacheConfiguration = configuration.remoteCaches().get(cacheName);
       NearCacheConfiguration nearCache;
       if (remoteCacheConfiguration != null) {
@@ -596,10 +613,10 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
             }
             NearCacheService<K, V> nearCacheService = createNearCacheService(cacheName, nearCache);
             return InvalidatedNearRemoteCache.delegatingNearCache(
-                  new RemoteCacheImpl<>(this, cacheName, timeService, nearCacheService, objectStorage) , nearCacheService);
+                  new RemoteCacheImpl<>(this, cacheName, timeService, nearCacheService, factoryFunction) , nearCacheService);
          }
       }
-      return new RemoteCacheImpl<>(this, cacheName, timeService, objectStorage);
+      return new RemoteCacheImpl<>(this, cacheName, timeService, factoryFunction);
    }
 
    protected <K, V> NearCacheService<K, V> createNearCacheService(String cacheName, NearCacheConfiguration cfg) {
@@ -719,11 +736,11 @@ public class RemoteCacheManager implements RemoteCacheContainer, Closeable, Remo
       }
    }
 
-   private <K, V> TransactionalRemoteCacheImpl<K, V> createRemoteTransactionalCache(String cacheName, boolean objectStorage,
+   private <K, V> TransactionalRemoteCacheImpl<K, V> createRemoteTransactionalCache(String cacheName, Function<RemoteCacheImpl<K, V>, CacheOperationsFactory> factoryFunction,
                                                                                     boolean forceReturnValues, boolean recoveryEnabled, TransactionMode transactionMode,
                                                                                     TransactionManager transactionManager) {
       return new TransactionalRemoteCacheImpl<>(this, cacheName, forceReturnValues, recoveryEnabled, transactionManager,
-            getTransactionTable(transactionMode), timeService, objectStorage);
+            getTransactionTable(transactionMode), timeService, factoryFunction);
    }
 
    /*

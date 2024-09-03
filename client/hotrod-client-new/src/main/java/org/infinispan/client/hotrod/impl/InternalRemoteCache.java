@@ -60,10 +60,10 @@ public interface InternalRemoteCache<K, V> extends RemoteCache<K, V> {
 
    boolean hasForceReturnFlag();
 
-   void resolveStorage(boolean objectStorage);
+   void resolveStorage();
 
-   default void resolveStorage(MediaType key, MediaType value, boolean objectStorage) {
-      resolveStorage(objectStorage);
+   default void resolveStorage(MediaType key, MediaType value) {
+      resolveStorage();
    }
 
    @Override
@@ -72,8 +72,6 @@ public interface InternalRemoteCache<K, V> extends RemoteCache<K, V> {
    void init(Configuration configuration, OperationDispatcher dispatcher, ObjectName jmxParent);
 
    OperationDispatcher getDispatcher();
-
-   boolean isObjectStorage();
 
    byte[] keyToBytes(Object o);
 

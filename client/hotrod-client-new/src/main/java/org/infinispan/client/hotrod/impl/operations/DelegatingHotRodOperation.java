@@ -1,5 +1,7 @@
 package org.infinispan.client.hotrod.impl.operations;
 
+import java.util.Map;
+
 import org.infinispan.client.hotrod.DataFormat;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
@@ -91,5 +93,10 @@ public abstract class DelegatingHotRodOperation<T> extends HotRodOperation<T> {
    @Override
    public void reset() {
       delegate.reset();
+   }
+
+   @Override
+   public Map<String, byte[]> additionalParameters() {
+      return delegate.additionalParameters();
    }
 }

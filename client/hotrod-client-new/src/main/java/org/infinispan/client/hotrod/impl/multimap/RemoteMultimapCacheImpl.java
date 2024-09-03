@@ -171,8 +171,4 @@ public class RemoteMultimapCacheImpl<K, V> implements RemoteMultimapCache<K, V> 
          throw new RemoteCacheManagerNotStartedException(message);
       }
    }
-
-   private boolean isObjectStorage() {
-      return cache.isObjectStorage();
-   }
 }

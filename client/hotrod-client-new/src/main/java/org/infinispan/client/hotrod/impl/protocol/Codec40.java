@@ -33,8 +33,7 @@ public class Codec40 extends Codec31 {
    @Override
    protected void writeHeader(ByteBuf buf, long messageId, ClientTopology clientTopology, HotRodOperation<?> operation, byte version) {
       super.writeHeader(buf, messageId, clientTopology, operation, version);
-      // TODO: I didn't see anything passing these??
-      writeOtherParams(buf, null);
+      writeOtherParams(buf, operation.additionalParameters());
    }
 
    private void writeOtherParams(ByteBuf buf, Map<String, byte[]> parameters) {
