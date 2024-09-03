@@ -7,6 +7,7 @@ import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.infinispan.client.hotrod.CacheTopologyInfo;
 import org.infinispan.client.hotrod.FailoverRequestBalancingStrategy;
@@ -33,13 +35,16 @@ import org.infinispan.client.hotrod.impl.TopologyInfo;
 import org.infinispan.client.hotrod.impl.Util;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHash;
 import org.infinispan.client.hotrod.impl.consistenthash.SegmentConsistentHash;
+import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.DelegatingHotRodOperation;
+import org.infinispan.client.hotrod.impl.operations.HotRodBulkOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
 import org.infinispan.client.hotrod.impl.topology.CacheInfo;
 import org.infinispan.client.hotrod.impl.topology.ClusterInfo;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
+import org.infinispan.commons.util.concurrent.AggregateCompletionStage;
 import org.infinispan.commons.util.concurrent.CompletionStages;
 
 import io.netty.channel.Channel;
@@ -179,6 +184,44 @@ public class OperationDispatcher {
 
    public <E> CompletionStage<E> execute(HotRodOperation<E> operation) {
       return execute(operation, Set.of());
+   }
+
+   public <E, O extends HotRodOperation<E>> CompletionStage<E> executeBulk(HotRodBulkOperation<E, O> operation) {
+      Map<SocketAddress, O> bulk = operation.operations(identifyOperationTarget(operation, Set.of()));
+      Collection<E> collector = Collections.synchronizedList(new ArrayList<>());
+      AggregateCompletionStage<Collection<E>> acs = CompletionStages.aggregateCompletionStage(collector);
+      for (Map.Entry<SocketAddress, O> entry : bulk.entrySet()) {
+         CompletionStage<E> single = executeOnSingleAddress(entry.getValue(), entry.getKey());
+         acs.dependsOn(single.whenComplete((v, t) -> {
+            if (t != null) {
+               for (O o : bulk.values()) {
+                  o.cancel(true);
+               }
+            } else {
+               collector.add(v);
+            }
+         }));
+      }
+
+      acs.freeze().whenComplete((res, t) -> {
+         if (t != null) {
+            operation.completeExceptionally(t);
+         } else {
+            operation.complete(res);
+         }
+      });
+      return operation;
+   }
+
+   private Function<Object, SocketAddress> identifyOperationTarget(HotRodOperation<?> operation, Set<SocketAddress> failedServers) {
+      CacheInfo info = getCacheInfo(operation.getCacheName());
+      if (info != null && info.getConsistentHash() != null) {
+         ConsistentHash ch = info.getConsistentHash();
+         return ch::getServer;
+      }
+
+      FailoverRequestBalancingStrategy frbs = getBalancer(operation.getCacheName());
+      return obj -> frbs.nextServer(failedServers);
    }
 
    public <E> CompletionStage<E> execute(HotRodOperation<E> operation, Set<SocketAddress> failedServers) {

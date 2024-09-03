@@ -137,7 +137,7 @@ public class CacheOperationsFactory {
       return new RemoveIfUnmodifiedOperation<>(remoteCache, remoteCache.getDataFormat().keyToBytes(key), version);
    }
 
-   public <K, V> HotRodOperation<Map<K,V>> newGetAllOperation(Set<byte[]> byteKeys) {
+   public <K, V> GetAllOperation<K, V> newGetAllOperation(Set<byte[]> byteKeys) {
       return new GetAllOperation<>(remoteCache, byteKeys);
    }
 

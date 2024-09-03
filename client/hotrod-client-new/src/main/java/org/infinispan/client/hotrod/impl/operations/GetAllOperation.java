@@ -1,8 +1,13 @@
 package org.infinispan.client.hotrod.impl.operations;
 
+import java.net.SocketAddress;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
@@ -18,7 +23,7 @@ import io.netty.channel.Channel;
  * @author William Burns
  * @since 7.2
  */
-public class GetAllOperation<K, V> extends AbstractCacheOperation<Map<K, V>> {
+public class GetAllOperation<K, V> extends HotRodBulkOperation<Map<K, V>, GetAllOperation<K, V>> {
 
    private Map<K, V> result;
    private int size = -1;
@@ -74,7 +79,25 @@ public class GetAllOperation<K, V> extends AbstractCacheOperation<Map<K, V>> {
    }
 
    @Override
-   public Object getRoutingObject() {
-      return keys.iterator().next();
+   public Map<SocketAddress, GetAllOperation<K, V>> operations(Function<Object, SocketAddress> mapper) {
+      Map<SocketAddress, Set<byte[]>> split = new HashMap<>();
+      for (byte[] key : keys) {
+         SocketAddress target = mapper.apply(key);
+         Set<byte[]> segment = split.computeIfAbsent(target, ignore -> new HashSet<>());
+         segment.add(key);
+      }
+      return split.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> newInstance(e.getValue())));
+   }
+
+   private GetAllOperation<K, V> newInstance(Set<byte[]> subset) {
+      return new GetAllOperation<>(internalRemoteCache, subset);
+   }
+
+   @Override
+   public void complete(Collection<Map<K, V>> responses) {
+      Map<K, V> reduced = new HashMap<>();
+      responses.forEach(reduced::putAll);
+      complete(reduced);
    }
 }

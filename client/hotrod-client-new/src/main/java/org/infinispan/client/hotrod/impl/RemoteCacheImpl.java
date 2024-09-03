@@ -41,9 +41,11 @@ import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.operations.CacheOperationsFactory;
 import org.infinispan.client.hotrod.impl.operations.ClearOperation;
 import org.infinispan.client.hotrod.impl.operations.ClientListenerOperation;
+import org.infinispan.client.hotrod.impl.operations.GetAllOperation;
 import org.infinispan.client.hotrod.impl.operations.GetWithMetadataOperation;
 import org.infinispan.client.hotrod.impl.operations.HotRodOperation;
 import org.infinispan.client.hotrod.impl.operations.PingResponse;
+import org.infinispan.client.hotrod.impl.operations.PutAllOperation;
 import org.infinispan.client.hotrod.impl.operations.RetryAwareCompletionStage;
 import org.infinispan.client.hotrod.impl.protocol.Codec30;
 import org.infinispan.client.hotrod.impl.query.RemoteQueryFactory;
@@ -299,9 +301,8 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       for (Entry<? extends K, ? extends V> entry : map.entrySet()) {
          byteMap.put(keyToBytes(entry.getKey()), valueToBytes(entry.getValue()));
       }
-      // TODO: need to add the parallel version
-      HotRodOperation<Void> op = operationsFactory.newPutAllOperation(byteMap, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
-      return dispatcher.execute(op).toCompletableFuture();
+      PutAllOperation op = operationsFactory.newPutAllOperation(byteMap, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
+      return dispatcher.executeBulk(op).toCompletableFuture();
    }
 
    @Override
@@ -538,8 +539,8 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> implements I
       for (Object key : keys) {
          byteKeys.add(keyToBytes(key));
       }
-      HotRodOperation<Map<K, V>> op = operationsFactory.newGetAllOperation(byteKeys);
-      return dispatcher.execute(op)
+      GetAllOperation<K, V> op = operationsFactory.newGetAllOperation(byteKeys);
+      return dispatcher.executeBulk(op)
             .thenApply(Collections::unmodifiableMap)
             .toCompletableFuture();
    }

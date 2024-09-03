@@ -1,7 +1,12 @@
 package org.infinispan.client.hotrod.impl.operations;
 
+import java.net.SocketAddress;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.infinispan.client.hotrod.exceptions.InvalidResponseException;
 import org.infinispan.client.hotrod.impl.InternalRemoteCache;
@@ -13,7 +18,7 @@ import org.infinispan.client.hotrod.impl.transport.netty.HeaderDecoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
-public class PutAllOperation extends AbstractCacheOperation<Void> {
+public class PutAllOperation extends HotRodBulkOperation<Void, PutAllOperation> {
    protected final Map<byte[], byte[]> map;
    protected final long lifespan;
    private final TimeUnit lifespanTimeUnit;
@@ -61,7 +66,25 @@ public class PutAllOperation extends AbstractCacheOperation<Void> {
    }
 
    @Override
-   public Object getRoutingObject() {
-      return map.keySet().iterator().next();
+   public Map<SocketAddress, PutAllOperation> operations(Function<Object, SocketAddress> mapper) {
+      Map<SocketAddress, Map<byte[], byte[]>> split = new HashMap<>();
+
+      for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
+         SocketAddress target = mapper.apply(entry.getKey());
+         Map<byte[], byte[]> segment = split.computeIfAbsent(target, ignore -> new HashMap<>());
+         segment.put(entry.getKey(), entry.getValue());
+      }
+
+      return split.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> newInstance(e.getValue())));
+   }
+
+   private PutAllOperation newInstance(Map<byte[], byte[]> content) {
+      return new PutAllOperation(internalRemoteCache, content, lifespan, lifespanTimeUnit, maxIdle, maxIdleTimeUnit);
+   }
+
+   @Override
+   public void complete(Collection<Void> responses) {
+      complete((Void) null);
    }
 }
