@@ -23,10 +23,16 @@ public class DatabaseServerListener implements InfinispanServerListener {
    private static final Logger log = Logger.getLogger(DatabaseServerListener.class);
    private static final String DATABASE_PROPERTIES = "org.infinispan.server.test.database.%s.%s";
    private final String[] databaseTypes;
+   private final Properties properties;
    public final Map<String, Database> databases;
 
    public DatabaseServerListener(String... databaseTypes) {
-      String property = System.getProperty(INFINISPAN_TEST_CONTAINER_DATABASE_TYPES);
+      this(System.getProperties(), databaseTypes);
+   }
+
+   public DatabaseServerListener(Properties properties, String ... databaseTypes) {
+      this.properties = properties;
+      String property = properties.getProperty(INFINISPAN_TEST_CONTAINER_DATABASE_TYPES);
       if (property != null) {
          this.databaseTypes = property.split(",");
          log.infof("Overriding databases: %s", Arrays.toString(this.databaseTypes));
@@ -49,10 +55,13 @@ public class DatabaseServerListener implements InfinispanServerListener {
                throw new RuntimeException("Duplicate database type " + dbType);
             }
          }
-         addDbProperty(driver, database,"jdbcUrl", database.jdbcUrl());
-         addDbProperty(driver, database,"username", database.username());
-         addDbProperty(driver, database,"password", database.password());
-         addDbProperty(driver, database,"driver", database.driverClassName());
+
+         if (driver != null) {
+            addDbProperty(driver, database,"jdbcUrl", database.jdbcUrl());
+            addDbProperty(driver, database,"username", database.username());
+            addDbProperty(driver, database,"password", database.password());
+            addDbProperty(driver, database,"driver", database.driverClassName());
+         }
       }
    }
 
@@ -73,7 +82,7 @@ public class DatabaseServerListener implements InfinispanServerListener {
    }
 
    private Database initDatabase(String databaseType) {
-      String property = System.getProperty(INFINISPAN_TEST_CONTAINER_DATABASE_PROPERTIES);
+      String property = properties.getProperty(INFINISPAN_TEST_CONTAINER_DATABASE_PROPERTIES);
       try (InputStream inputStream = property != null ? Files.newInputStream(Paths.get(property).resolve(databaseType + ".properties")) : getClass().getResourceAsStream(String.format("/database/%s.properties", databaseType))) {
          Properties properties = new Properties();
          properties.load(inputStream);

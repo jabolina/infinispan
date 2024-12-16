@@ -367,6 +367,11 @@
          </dependency>
          <dependency>
             <groupId>org.infinispan</groupId>
+            <artifactId>infinispan-change-data-capture</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.infinispan</groupId>
             <artifactId>infinispan-commons-graalvm</artifactId>
             <version>${project.version}</version>
          </dependency>

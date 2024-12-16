@@ -106,4 +106,11 @@ public class ManagedConnectionFactory extends ConnectionFactory {
          }
       }
    }
+
+   public DataSource dataSource() {
+      if (dataSource == null)
+         initDataSource();
+
+      return dataSource;
+   }
 }
