@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - '*.0.x'
+  workflow_dispatch:
 
 concurrency:
   # Cancel jobs same head_branch same repo, works
