@@ -6,6 +6,8 @@ import static org.infinispan.util.logging.Log.CONTAINER;
 
 import java.util.concurrent.CompletionStage;
 
+import org.infinispan.commons.logging.Log;
+import org.infinispan.commons.logging.LogFactory;
 import org.infinispan.commons.util.concurrent.CompletableFutures;
 import org.infinispan.globalstate.ScopedState;
 import org.infinispan.notifications.Listener;
@@ -25,6 +27,7 @@ import org.infinispan.security.actions.SecurityActions;
  */
 @Listener(observation = Listener.Observation.BOTH)
 public class GlobalConfigurationStateListener {
+   private static final Log log = LogFactory.getLog(GlobalConfigurationStateListener.class);
    private final GlobalConfigurationManagerImpl gcm;
 
    GlobalConfigurationStateListener(GlobalConfigurationManagerImpl gcm) {
@@ -42,6 +45,9 @@ public class GlobalConfigurationStateListener {
 
       String name = event.getKey().getName();
       CacheState state = event.getValue();
+
+      log.infof("Received scope '%s' for cache '%s' with %s", scope, name, state);
+
       if (CACHE_SCOPE.equals(scope)) {
          CompletionStage<Void> cs = gcm.createCacheLocally(name, state);
          // zero capacity nodes have to wait for a non-zero capacity node to start the cache.

@@ -78,7 +78,7 @@ public class VolatileLocalConfigurationStorage implements LocalConfigurationStor
       Configuration existing = SecurityActions.getCacheConfiguration(cacheManager, name);
       if (existing == null) {
          SecurityActions.defineConfiguration(cacheManager, name, configuration);
-         log.debugf("Defined cache '%s' on '%s' using %s", name, cacheManager.getAddress(), configuration);
+         log.infof("Defined cache '%s' on '%s' using %s", name, cacheManager.getAddress(), configuration);
       } else if (!existing.matches(configuration)) {
          throw CONFIG.incompatibleClusterConfiguration(name, configuration, existing);
       } else {
@@ -86,7 +86,7 @@ public class VolatileLocalConfigurationStorage implements LocalConfigurationStor
             // This is actually an update for a programmatically-defined cache
             return updateConfiguration(name, configuration, flags);
          } else {
-            log.debugf("%s already has a cache %s with configuration %s", cacheManager.getAddress(), name, configuration);
+            log.infof("%s already has a cache %s with configuration %s", cacheManager.getAddress(), name, configuration);
          }
       }
       // Ensure the cache is started
@@ -115,6 +115,7 @@ public class VolatileLocalConfigurationStorage implements LocalConfigurationStor
       if (existing == null) {
          throw CONFIG.noSuchCacheConfiguration(name);
       } else {
+         log.infof("Updating %s configuration %s", name, configuration);
          existing.update(name, configuration);
       }
       return CompletableFutures.completedNull();
