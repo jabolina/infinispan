@@ -127,6 +127,7 @@ public class GlobalConfigurationManagerImpl implements GlobalConfigurationManage
       Map<String, Configuration> persistedCaches = localConfigurationManager.loadAllCaches();
 
       getStateCache().forEach((key, v) -> {
+         log.infof("Loading cache state: %s=%s", key, v);
          String scope = key.getScope();
          if (isKnownScope(scope)) {
             String name = key.getName();
@@ -288,9 +289,15 @@ public class GlobalConfigurationManagerImpl implements GlobalConfigurationManage
          if (internalCacheRegistry.isInternalCache(cacheName)) {
             throw CONFIG.cannotUpdateInternalCache(cacheName);
          }
+         log.infof("Updating %s cache configuration", cacheName);
          return getStateCache().putAsync(new ScopedState(CACHE_SCOPE, cacheName), state);
       } else {
-         return getStateCache().putIfAbsentAsync(new ScopedState(CACHE_SCOPE, cacheName), state);
+         log.infof("Putting %s if absent configuration", cacheName);
+         return getStateCache().putIfAbsentAsync(new ScopedState(CACHE_SCOPE, cacheName), state)
+               .thenApply(v -> {
+                  log.infof("Put if absent %s conf: %s", cacheName, v);
+                  return v;
+               });
       }
    }
 
