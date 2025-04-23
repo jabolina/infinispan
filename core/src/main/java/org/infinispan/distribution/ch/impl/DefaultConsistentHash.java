@@ -292,7 +292,7 @@ public class DefaultConsistentHash extends AbstractConsistentHash {
    public String prettyPrintOwnership() {
       StringBuilder sb = new StringBuilder();
       for (Address member : getMembers()) {
-         sb.append("\n").append(member).append(":");
+         sb.append("\n").append(member).append(" -- ").append(member.hashCode()).append(":");
          for (int segment = 0; segment < segmentOwners.length; segment++) {
             int index = segmentOwners[segment].indexOf(member);
             if (index >= 0) {

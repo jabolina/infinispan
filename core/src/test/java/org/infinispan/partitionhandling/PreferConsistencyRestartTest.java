@@ -18,10 +18,12 @@ import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.context.Flag;
 import org.infinispan.distribution.LocalizedCacheTopology;
 import org.infinispan.distribution.MagicKey;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHash;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.jgroups.JGroupsAddress;
 import org.infinispan.test.TestingUtil;
+import org.infinispan.topology.CacheTopology;
 import org.infinispan.topology.ClusterTopologyManager;
 import org.infinispan.topology.LocalTopologyManager;
 import org.infinispan.topology.PersistentUUID;
@@ -32,7 +34,7 @@ public class PreferConsistencyRestartTest extends BaseStatefulPartitionHandlingT
 
    {
       lockingMode = null;
-      partitionHandling = PartitionHandling.DENY_READ_WRITES;
+      partitionHandling = PartitionHandling.ALLOW_READ_WRITES;
       cacheMode = CacheMode.DIST_SYNC;
       numberOfOwners = 2;
       numMembersInCluster = 3;
@@ -140,6 +142,76 @@ public class PreferConsistencyRestartTest extends BaseStatefulPartitionHandlingT
       }
    }
 
+   public void testRestart() throws Exception {
+      createInitialCluster();
+
+      checkData();
+
+      ClusterTopologyManager ctm = TestingUtil.extractGlobalComponent(manager(0), ClusterTopologyManager.class);
+      TestingUtil.join(ctm.setRebalancingEnabled(false));
+
+      showTopology();
+      // cache(0, CACHE_NAME).shutdown();
+      //stopManagers(2, 1, 0);
+
+      for (int i = numMembersInCluster - 1; i >=0; i--) {
+         EmbeddedCacheManager ecm = cacheManagers.remove(i);
+         ecm.stop();
+         createStatefulCacheManager(Character.toString('A' + i), false);
+         //waitForClusterToForm();
+      }
+
+      /*createStatefulCacheManager("A", false);
+      createStatefulCacheManager("B", false);
+      createStatefulCacheManager("C", false);*/
+
+      ctm = TestingUtil.extractGlobalComponent(manager(0), ClusterTopologyManager.class);
+      assertThat(ctm.isRebalancingEnabled()).isFalse();
+      TestingUtil.join(ctm.setRebalancingEnabled(true));
+
+      waitForClusterToForm(CACHE_NAME);
+
+      showTopology();
+      checkData();
+   }
+
+   public void testRebalancingRestart() throws Exception {
+      createInitialCluster();
+
+      checkData();
+
+      for (int i = numMembersInCluster - 1; i >=0; i--) {
+         EmbeddedCacheManager ecm = cacheManagers.remove(i);
+         ecm.stop();
+         if (i == 0) continue;
+         waitForClusterToForm(CACHE_NAME);
+      }
+
+      cacheManagers.clear();
+
+      for (int i = 0; i < numMembersInCluster; i++) {
+         createStatefulCacheManager(Character.toString('A' + i), false);
+         waitForClusterToForm(CACHE_NAME);
+      }
+
+      checkData();
+   }
+
+   public void testStopRebalanceStart() throws Exception {
+      createInitialCluster();
+
+      checkData();
+
+      for (int i = numMembersInCluster - 1; i >=0; i--) {
+         EmbeddedCacheManager ecm = cacheManagers.remove(i);
+         ecm.stop();
+         createStatefulCacheManager(Character.toString('A' + i), false);
+         waitForClusterToForm(CACHE_NAME);
+      }
+
+      checkData();
+   }
+
    public void testCoordinatorChangesWhileDegraded() throws Exception {
       Map<JGroupsAddress, PersistentUUID> addressMappings = createInitialCluster();
 
@@ -148,6 +220,7 @@ public class PreferConsistencyRestartTest extends BaseStatefulPartitionHandlingT
       String defaultCacheName = "defaultcache";
 
       checkData();
+      showTopology();
 
       // Stop two nodes, one of them is the coordinator.
       stopManagers(2, 0);
@@ -180,8 +253,12 @@ public class PreferConsistencyRestartTest extends BaseStatefulPartitionHandlingT
       createStatefulCacheManager("C", false);
       assertThat(ctm.getAvailabilityMode(defaultCacheName)).isEqualTo(AVAILABLE);
 
+      waitForClusterToForm(CACHE_NAME);
       // The UUID mapping recovered successfully.
       checkPersistentUUIDMatch(addressMappings);
+      System.out.println("AFTER:");
+      showTopology();
+      checkData();
    }
 
    public void testCrashBeforeRecover() throws Exception {
@@ -292,5 +369,15 @@ public class PreferConsistencyRestartTest extends BaseStatefulPartitionHandlingT
       return v == null
             ? cache(2).getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL).get(mk)
             : v;
+   }
+
+   private void showTopology() {
+      LocalTopologyManager ltm = TestingUtil.extractGlobalComponent(manager(0), LocalTopologyManager.class);
+      CacheTopology topology = ltm.getCacheTopology(CACHE_NAME);
+      if (topology.getCurrentCH() instanceof DefaultConsistentHash dch) {
+         System.out.println(dch.prettyPrintOwnership());
+      } else {
+         System.out.println("Not default: " + topology.getCurrentCH());
+      }
    }
 }
