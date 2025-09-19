@@ -1,6 +1,5 @@
 package org.infinispan.query.backend;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -125,7 +124,6 @@ public final class QueryInterceptor extends DDAsyncInterceptor {
       isPersistenceEnabled = cacheConfiguration.persistence().usingStores();
       javaEmbeddedEntities = cacheConfiguration.indexing().useJavaEmbeddedEntities();
       this.cache = cache;
-      Map<String, Class<?>> indexedClasses1 = Collections.unmodifiableMap(indexedClasses);
    }
 
    @Start
@@ -161,10 +159,12 @@ public final class QueryInterceptor extends DDAsyncInterceptor {
          return true;
       }
 
+      if (command != null && command.hasAnyFlag(FlagBitSets.PUT_FOR_STATE_TRANSFER))
+         return true;
+
       DistributionInfo info = distributionManager.getCacheTopology().getDistribution(key);
       // If this is a backup node we should modify the entry in the remote context
-      return info.isPrimary() || info.isWriteOwner() &&
-            (ctx.isInTxScope() || !ctx.isOriginLocal() || command != null && command.hasAnyFlag(FlagBitSets.PUT_FOR_STATE_TRANSFER));
+      return info.isPrimary() || info.isWriteOwner() && (ctx.isInTxScope() || !ctx.isOriginLocal());
    }
 
    public BlockingManager getBlockingManager() {
@@ -418,27 +418,38 @@ public final class QueryInterceptor extends DDAsyncInterceptor {
       }
 
       int segment = SegmentSpecificCommand.extractSegment(command, storedKey, keyPartitioner);
-      Object key = extractKey(storedKey);
+      Object key = null;
       Object oldValue = storedOldValue == UNKNOWN ? UNKNOWN : extractValue(storedOldValue);
-      Object newValue = extractValue(storedNewValue);
+      Object newValue = null;
       boolean skipIndexCleanup = command != null && command.hasAnyFlag(FlagBitSets.SKIP_INDEX_CLEANUP);
       CompletableFuture<?> operation = CompletableFutures.completedNull();
       if (!skipIndexCleanup) {
          if (oldValue == UNKNOWN) {
             if (shouldModifyIndexes(command, ctx, storedKey)) {
+               key = extractKey(storedKey);
                operation = removeFromIndexes(key, segment);
+            } else {
+               newValue = extractValue(storedNewValue);
+               if (isPotentiallyIndexedType(oldValue) && (newValue == null || replacedWithADifferentEntity(newValue, oldValue))
+                     && shouldModifyIndexes(command, ctx, storedKey)) {
+                  key = extractKey(storedKey);
+                  operation = removeFromIndexes(oldValue, key, segment);
+               } else if (log.isTraceEnabled()) {
+                  log.tracef("Index cleanup not needed for %s -> %s", oldValue, newValue);
+               }
             }
-         } else if (isPotentiallyIndexedType(oldValue) && (newValue == null || replacedWithADifferentEntity(newValue, oldValue))
-               && shouldModifyIndexes(command, ctx, storedKey)) {
-            operation = removeFromIndexes(oldValue, key, segment);
-         } else if (log.isTraceEnabled()) {
-            log.tracef("Index cleanup not needed for %s -> %s", oldValue, newValue);
          }
       } else if (log.isTraceEnabled()) {
          log.tracef("Skipped index cleanup for command %s", command);
       }
+
+      if (newValue == null) {
+         newValue = extractValue(storedNewValue);
+      }
+
       if (isPotentiallyIndexedType(newValue)) {
          if (shouldModifyIndexes(command, ctx, storedKey)) {
+            if (key == null) key = extractKey(storedKey);
             // We don't need to wait for a possible removeFromIndexes operation,
             // since if it exists, the oldValue is UNKNOWN or replacedWithADifferentEntity is true,
             // which implies that the delete and the add operations are related to different indexes
