@@ -15,6 +15,7 @@ copy_files() {
 
         #Forming new filename based on DB name
         filename="$filename_without_extension-$db.$extension"
+        echo "Copying file $filename to $destination/server/tests/target/$filename"
 
         # Copy the file to the destination
         cp "$file" "$destination/server/tests/target/$filename"
@@ -22,6 +23,10 @@ copy_files() {
 }
 
 for i in $sourceDirs; do
+    if [[ "$i" == *-rolling-upgrades ]]; then
+        echo "Skipping $i as it matches the ignore pattern."
+        continue # 'continue' skips to the next item in the loop
+    fi
     echo "Copying $i"
     db="${i##*-}"
     if [[ "$db" = "main" ]]; then
