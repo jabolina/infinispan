@@ -158,7 +158,7 @@ jobs:
       id: github_sha
       uses: juliangruber/read-file-action@v1
       with:
-        path: ./github-sha.txt
+        path: ./surefire-test-report/github-sha.txt
 
     - uses: actions/create-github-app-token@v2
       id: app-token
