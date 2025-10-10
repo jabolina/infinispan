@@ -74,7 +74,8 @@ public class ClassFinder {
       // either infinispan jar or a directory of output classes contains infinispan classes
       for (String path : javaClassPath.split(File.pathSeparator)) {
          File file = new File(path);
-         boolean isInfinispanJar = file.isFile() && file.getName().contains("infinispan");
+         boolean isInfinispanJar = file.isFile() && file.getName().contains("infinispan")
+               && !file.getName().contains("infinispan-commons-test");
          // Exclude the test utility classes in the commons-test module
          boolean isTargetDirectory = file.isDirectory() &&
                new File(file, "org/infinispan").isDirectory() &&
