@@ -50,9 +50,9 @@ public class ClassFinderTest {
 
    @Target(ElementType.TYPE)
    @Retention(RetentionPolicy.RUNTIME)
-   private @interface ClassAnnotation { }
+   public @interface ClassAnnotation { }
 
    @Target(ElementType.TYPE)
    @Retention(RetentionPolicy.RUNTIME)
-   private @interface ClassAnnotation2 { }
+   public @interface ClassAnnotation2 { }
 }
