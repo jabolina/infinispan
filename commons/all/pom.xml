@@ -200,6 +200,9 @@
                   <usedefaultlisteners>false</usedefaultlisteners>
                   <listener>${junitListener}</listener>
                </properties>
+               <classpathDependencyExcludes>
+                  <classpathDependencyExclude>org.infinispan:infinispan-api</classpathDependencyExclude>
+               </classpathDependencyExcludes>
             </configuration>
             <dependencies>
                <dependency>
