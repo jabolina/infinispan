@@ -128,6 +128,13 @@ jobs:
             # Wait up to 4 hours (14400 seconds)
             SECONDS=0
             while kill -0 $MVN_PID 2>/dev/null; do
+              df -h
+              du -sh /home/runner/*
+              if [ -d "/home/runner/.m2/repository" ]; then
+                du -sh /home/runner/.m2/repository
+              else
+                echo "Maven repository not found."
+              fi
               if [ $SECONDS -ge 14400 ]; then
                 echo "Timeout reached. Dumping Java threads..."
                 # Find all Java processes and dump threads
