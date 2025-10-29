@@ -40,9 +40,12 @@ import org.infinispan.client.rest.impl.jdk.auth.HttpAuthenticator;
 import org.infinispan.client.rest.impl.jdk.auth.NegotiateAuthenticator;
 import org.infinispan.client.rest.impl.jdk.sse.EventSubscriber;
 import org.infinispan.commons.dataconversion.MediaType;
+import org.infinispan.commons.logging.Log;
+import org.infinispan.commons.logging.LogFactory;
 import org.infinispan.commons.util.SslContextFactory;
 
 public class RestRawClientJDK implements RestRawClient, AutoCloseable {
+   private static final Log log =  LogFactory.getLog(RestRawClientJDK.class, Log.class);
    private static final AtomicLong CLIENT_IDS = new AtomicLong();
    private final RestClientConfiguration configuration;
    private final HttpAuthenticator authenticator;
@@ -244,6 +247,7 @@ public class RestRawClientJDK implements RestRawClient, AutoCloseable {
       if (authenticator != null && authenticator.supportsPreauthentication()) {
          authenticator.preauthenticate(builder);
       }
+      log.infof("Submitting request %d", System.identityHashCode(request));
       return handle(httpClient.sendAsync(request, handlerSupplier.get()), handlerSupplier).thenApply(RestResponseJDK::new);
    }
 

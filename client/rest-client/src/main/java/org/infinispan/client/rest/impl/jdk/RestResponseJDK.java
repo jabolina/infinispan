@@ -15,11 +15,14 @@ import java.util.Optional;
 import org.infinispan.client.rest.RestResponse;
 import org.infinispan.client.rest.configuration.Protocol;
 import org.infinispan.commons.dataconversion.MediaType;
+import org.infinispan.commons.logging.Log;
+import org.infinispan.commons.logging.LogFactory;
 
 /**
  * @since 15.0
  **/
 public class RestResponseJDK<T> implements RestResponse {
+   private static final Log log = LogFactory.getLog(RestResponseJDK.class, Log.class);
    private final HttpResponse<T> response;
 
    public RestResponseJDK(HttpResponse<T> response) {
@@ -43,6 +46,7 @@ public class RestResponseJDK<T> implements RestResponse {
 
    @Override
    public String body() {
+      log.infof("1 - Consuming request %d", System.identityHashCode(response.request()));
       Object body = response.body();
       if (body instanceof String) {
          return (String) body;
@@ -59,6 +63,7 @@ public class RestResponseJDK<T> implements RestResponse {
 
    @Override
    public InputStream bodyAsStream() {
+      log.infof("1 - Consuming request %d", System.identityHashCode(response.request()));
       Object body = response.body();
       if (body instanceof InputStream) {
          return (InputStream) body;
@@ -71,6 +76,7 @@ public class RestResponseJDK<T> implements RestResponse {
 
    @Override
    public byte[] bodyAsByteArray() {
+      log.infof("1 - Consuming request %d", System.identityHashCode(response.request()));
       Object body = response.body();
       if (body instanceof byte[]) {
          return (byte[]) body;
@@ -101,6 +107,7 @@ public class RestResponseJDK<T> implements RestResponse {
 
    @Override
    public void close() {
+      log.infof("1 - Closing request %d", System.identityHashCode(response.request()));
    }
 
    @Override
