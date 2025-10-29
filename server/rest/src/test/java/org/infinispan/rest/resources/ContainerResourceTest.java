@@ -79,13 +79,13 @@ public class ContainerResourceTest extends AbstractRestResourceTest {
    public Object[] factory() {
       return new Object[]{
             new ContainerResourceTest().withSecurity(true).protocol(HTTP_11).browser(false),
-//            new ContainerResourceTest().withSecurity(true).protocol(HTTP_11).browser(true),
-//            new ContainerResourceTest().withSecurity(false).protocol(HTTP_11).browser(false),
-//            new ContainerResourceTest().withSecurity(false).protocol(HTTP_11).browser(true),
-//            new ContainerResourceTest().withSecurity(true).protocol(HTTP_20).browser(false),
-//            new ContainerResourceTest().withSecurity(true).protocol(HTTP_20).browser(true),
-//            new ContainerResourceTest().withSecurity(false).protocol(HTTP_20).browser(false),
-//            new ContainerResourceTest().withSecurity(false).protocol(HTTP_20).browser(true),
+            new ContainerResourceTest().withSecurity(true).protocol(HTTP_11).browser(true),
+            new ContainerResourceTest().withSecurity(false).protocol(HTTP_11).browser(false),
+            new ContainerResourceTest().withSecurity(false).protocol(HTTP_11).browser(true),
+            new ContainerResourceTest().withSecurity(true).protocol(HTTP_20).browser(false),
+            new ContainerResourceTest().withSecurity(true).protocol(HTTP_20).browser(true),
+            new ContainerResourceTest().withSecurity(false).protocol(HTTP_20).browser(false),
+            new ContainerResourceTest().withSecurity(false).protocol(HTTP_20).browser(true),
       };
    }
 
