@@ -122,7 +122,7 @@ public class RestRawClientJDK implements RestRawClient, AutoCloseable {
       baseURL = String.format("%s://%s:%d", ssl.enabled() ? "https" : "http", server.host(), server.port());
       if (configuration.pingOnCreate()) {
          try {
-            head("/").toCompletableFuture().get();
+            head("/").toCompletableFuture().get().close();
          } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
          }
@@ -265,11 +265,12 @@ public class RestRawClientJDK implements RestRawClient, AutoCloseable {
 
    @Override
    public void close() throws Exception {
-      if (Runtime.version().feature() >= 21) {
-         ((AutoCloseable) httpClient).close(); // close() was only introduced in JDK 21
-      }
       if (managedExecutorService) {
          executorService.shutdownNow();
+      }
+
+      if (Runtime.version().feature() >= 21) {
+         ((AutoCloseable) httpClient).close(); // close() was only introduced in JDK 21
       }
    }
 
