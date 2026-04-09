@@ -143,6 +143,13 @@ public class GlobalConfigurationManagerImpl implements GlobalConfigurationManage
       // Create the templates
       persistedTemplates.forEach((name, configuration) -> {
          ensurePersistenceCompatibility(name, configuration);
+         ScopedState key = new ScopedState(TEMPLATE_SCOPE, name);
+
+         // If template already exists in the cache after starting and state transfer, we skip the extra write operation.
+         if (getStateCache().containsKey(key)) {
+            log.debugf("Template %s already in cluster state, skipping CONFIG write", name);
+            return;
+         }
          // The template was permanent, it still needs to be
          CompletionStages.join(getOrCreateTemplate(name, configuration, adminFlags));
       });
@@ -150,7 +157,19 @@ public class GlobalConfigurationManagerImpl implements GlobalConfigurationManage
       // Create the caches
       persistedCaches.forEach((name, configuration) -> {
          ensurePersistenceCompatibility(name, configuration);
+         ScopedState key = new ScopedState(CACHE_SCOPE, name);
+         CacheState existing = (CacheState) getStateCache().get(key);
+         if (existing != null) {
+            // Entry already in the CONFIG cache after the state transfer.
+            // We can skip some extra expensive steps to insert the configuration.
+            log.debugf("Cache configuration %s already in cluster state, skipping CONFIG write", name);
+            Configuration remoteConf = buildConfiguration(name, existing.getConfiguration(), false);
+            ensurePersistenceCompatibility(name, configuration, remoteConf);
+            return;
+         }
+
          // The cache configuration was permanent, it still needs to be
+         // This is a new configuration and needs to be inserted cluster-wide.
          CompletionStages.join(createCacheInternal(name, null, configuration, adminFlags)
                .thenCompose(r -> {
                   if (r instanceof CacheState) {
