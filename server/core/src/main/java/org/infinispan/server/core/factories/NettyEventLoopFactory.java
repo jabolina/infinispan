@@ -6,6 +6,7 @@ import static org.infinispan.server.core.transport.NettyTransport.buildEventLoop
 import java.util.concurrent.ThreadFactory;
 
 import org.infinispan.commons.executors.ThreadPoolExecutorFactory;
+import org.infinispan.commons.util.ProcessorInfo;
 import org.infinispan.factories.AbstractComponentFactory;
 import org.infinispan.factories.AutoInstantiableFactory;
 import org.infinispan.factories.KnownComponentNames;
@@ -49,6 +50,7 @@ public class NettyEventLoopFactory extends AbstractComponentFactory implements A
       int threadAmount = tpef instanceof NonBlockingThreadPoolExecutorFactory ?
             ((NonBlockingThreadPoolExecutorFactory) tpef).maxThreads() :
             getDefaultThreads(KnownComponentNames.NON_BLOCKING_EXECUTOR);
+      threadAmount = Math.clamp(threadAmount, 2, ProcessorInfo.availableProcessors() - 1);
       // Unfortunately, netty doesn't allow us to specify a max number of queued tasks and rejection policy at the same
       // time and the former has actually been deprecated, so we do not honor these settings when running in the server
       // which means the non blocking executor may have an unbounded queue, depending upon netty implementation
