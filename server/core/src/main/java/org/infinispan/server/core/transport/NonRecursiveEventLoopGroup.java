@@ -1,6 +1,7 @@
 package org.infinispan.server.core.transport;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.infinispan.factories.annotations.Stop;
@@ -11,6 +12,8 @@ import org.infinispan.server.core.utils.DelegatingEventLoopGroup;
 
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultithreadEventLoopGroup;
+import io.netty.loom.VirtualIoNativePollerEventLoopGroup;
+import io.netty.loom.VirtualIoNioPollerEventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 
@@ -59,6 +62,17 @@ public class NonRecursiveEventLoopGroup extends DelegatingEventLoopGroup {
       return getExecutorNotInEventLoop().submit(task, result);
    }
 
+   public ThreadFactory threadFactory() {
+      if (eventLoopGroup instanceof VirtualIoNativePollerEventLoopGroup vt) {
+         return vt.vThreadFactory();
+      }
+
+      if (eventLoopGroup instanceof VirtualIoNioPollerEventLoopGroup vt) {
+         return vt.vThreadFactory();
+      }
+
+      return null;
+   }
 
    private EventExecutor getExecutorNotInEventLoop() {
       while (true) {

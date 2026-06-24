@@ -50,7 +50,8 @@ public class NettyEventLoopFactory extends AbstractComponentFactory implements A
       int threadAmount = tpef instanceof NonBlockingThreadPoolExecutorFactory ?
             ((NonBlockingThreadPoolExecutorFactory) tpef).maxThreads() :
             getDefaultThreads(KnownComponentNames.NON_BLOCKING_EXECUTOR);
-      threadAmount = Math.clamp(threadAmount, 2, ProcessorInfo.availableProcessors() - 1);
+      threadAmount = Math.clamp(threadAmount, 2, Math.max(2, ProcessorInfo.availableProcessors() - 1));
+      System.out.println("Utilizing threads: " + threadAmount);
       // Unfortunately, netty doesn't allow us to specify a max number of queued tasks and rejection policy at the same
       // time and the former has actually been deprecated, so we do not honor these settings when running in the server
       // which means the non blocking executor may have an unbounded queue, depending upon netty implementation

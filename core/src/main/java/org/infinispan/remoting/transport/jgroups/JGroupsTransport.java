@@ -25,6 +25,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -115,6 +116,7 @@ import org.jgroups.conf.ClassConfigurator;
 import org.jgroups.fork.ForkChannel;
 import org.jgroups.jmx.JmxConfigurator;
 import org.jgroups.protocols.FORK;
+import org.jgroups.protocols.TP;
 import org.jgroups.protocols.relay.RELAY;
 import org.jgroups.protocols.relay.RELAY2;
 import org.jgroups.protocols.relay.RouteStatusListener;
@@ -154,6 +156,7 @@ public class JGroupsTransport implements Transport {
    public static final String CHANNEL_CONFIGURATOR = "channelConfigurator";
    public static final String SOCKET_FACTORY = "socketFactory";
    public static final String DATA_SOURCE = "dataSource";
+   public static final String THREAD_FACTORY = "threadFactory";
    public static final short REQUEST_FLAGS_UNORDERED =
          (short) (Message.Flag.OOB.value() | Message.Flag.NO_TOTAL_ORDER.value());
    public static final short REQUEST_FLAGS_UNORDERED_NO_FC = (short) (REQUEST_FLAGS_UNORDERED | Message.Flag.NO_FC.value());
@@ -687,6 +690,13 @@ public class JGroupsTransport implements Transport {
       if (props != null && props.containsKey(SOCKET_FACTORY) && !props.containsKey(CHANNEL_CONFIGURATOR)) {
          Protocol protocol = channel.getProtocolStack().getTopProtocol();
          protocol.setSocketFactory((SocketFactory) props.get(SOCKET_FACTORY));
+      }
+
+      if (props != null && props.containsKey(THREAD_FACTORY)) {
+         ThreadFactory tf = (ThreadFactory) props.get(THREAD_FACTORY);
+         log.infof("Utilizing custom thread factory for JGroups: %s", tf);
+         TP tp = channel.getProtocolStack().getTransport();
+         tp.setThreadFactory(new NettyBackedThreadFactory(tf));
       }
    }
 

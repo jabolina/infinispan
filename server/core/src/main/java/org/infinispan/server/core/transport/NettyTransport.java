@@ -57,7 +57,6 @@ public class NettyTransport implements Transport {
 
    private static final Log log = Log.getLog(NettyTransport.class);
    private static final boolean isLog4jAvailable = isIsLog4jAvailable();
-   private final DefaultThreadFactory masterThreadFactory;
    private final DefaultThreadFactory ioThreadFactory;
 
    private ChannelInitializer<Channel> handler;
@@ -68,7 +67,6 @@ public class NettyTransport implements Transport {
    private final EmbeddedCacheManager cacheManager;
    final ChannelGroup acceptedChannels;
 
-   private EventLoopGroup masterGroup;
    private EventLoopGroup ioGroup;
 
    private final NettyTransportConnectionStats connectionStats;
@@ -93,7 +91,6 @@ public class NettyTransport implements Transport {
       this.address = address;
       this.configuration = configuration;
 
-      masterThreadFactory = new DefaultThreadFactory(threadNamePrefix + "-ServerMaster");
       ioThreadFactory = new DefaultThreadFactory(threadNamePrefix + "-ServerIO");
 
       serverChannels = new DefaultChannelGroup(threadNamePrefix + "-Channels", ImmediateEventExecutor.INSTANCE);
@@ -122,7 +119,6 @@ public class NettyTransport implements Transport {
          InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
 
       // Need to initialize these in constructor since they require configuration
-      masterGroup = buildEventLoop(1, masterThreadFactory, configuration.toString());
       // Need to initialize these in constructor since they require configuration. probably we need to inject the ioGroup in the constructor somehow.
       if (cacheManager == null) { //it is null for single-port endpoint. probably we need to inject the ioGroup in the constructor.
          ioGroup = buildEventLoop(configuration.ioThreads(), ioThreadFactory, configuration.toString());
@@ -131,7 +127,7 @@ public class NettyTransport implements Transport {
       }
 
       ServerBootstrap bootstrap = new ServerBootstrap();
-      bootstrap.group(masterGroup, ioGroup);
+      bootstrap.group(ioGroup);
       bootstrap.channel(getServerSocketChannel());
       bootstrap.childHandler(handler);
       bootstrap.childOption(ChannelOption.ALLOCATOR, AdaptiveByteBufAllocator.DEFAULT);
@@ -171,13 +167,10 @@ public class NettyTransport implements Transport {
 
    @GuardedBy("this")
    private void stopInternal() {
-      Future<?> masterTerminationFuture = masterGroup.shutdownGracefully(100, 1000, TimeUnit.MILLISECONDS);
       if (cacheManager == null) {
          Future<?> ioTerminationFuture = ioGroup.shutdownGracefully(100, 1000, TimeUnit.MILLISECONDS);
          ioTerminationFuture.awaitUninterruptibly();
       }
-
-      masterTerminationFuture.awaitUninterruptibly();
 
       if (serverChannels.isEmpty() && acceptedChannels.isEmpty()) {
          log.debug("Channel group completely closed, external resources released");

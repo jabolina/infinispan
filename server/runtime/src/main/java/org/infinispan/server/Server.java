@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -89,6 +90,7 @@ import org.infinispan.server.core.ServerStateManager;
 import org.infinispan.server.core.backup.BackupManagerImpl;
 import org.infinispan.server.core.configuration.ProtocolServerConfiguration;
 import org.infinispan.server.core.configuration.ProtocolServerConfigurationBuilder;
+import org.infinispan.server.core.transport.NonRecursiveEventLoopGroup;
 import org.infinispan.server.datasource.DataSourceFactory;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration;
@@ -136,6 +138,8 @@ import org.wildfly.security.sasl.localuser.WildFlyElytronSaslLocalUserProvider;
 import org.wildfly.security.sasl.oauth2.WildFlyElytronSaslOAuth2Provider;
 import org.wildfly.security.sasl.plain.WildFlyElytronSaslPlainProvider;
 import org.wildfly.security.sasl.scram.WildFlyElytronSaslScramProvider;
+
+import io.netty.channel.EventLoopGroup;
 
 /**
  * @author Tristan Tarrant &lt;tristan@infinispan.org&gt;
@@ -428,6 +432,17 @@ public class Server extends BaseServerManagement implements AutoCloseable {
          // Register ourselves with the global registry
          GlobalComponentRegistry gcr = SecurityActions.getGlobalComponentRegistry(cacheManager);
          gcr.registerComponent(this, ServerManagement.class);
+
+         EventLoopGroup elg = SecurityActions.getGlobalComponentRegistry(cacheManager)
+               .getComponent(EventLoopGroup.class);
+         if (elg instanceof NonRecursiveEventLoopGroup nreg) {
+            ThreadFactory tf = nreg.threadFactory();
+            if (tf != null) {
+               configurationBuilderHolder.getGlobalConfigurationBuilder()
+                     .transport()
+                     .addProperty(JGroupsTransport.THREAD_FACTORY, tf);
+            }
+         }
 
          if (gcr.getGlobalConfiguration().tracing().security()) {
             defaultAuditLogger.setTelemetryService(gcr.getComponent(InfinispanTelemetry.class));
