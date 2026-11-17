@@ -109,6 +109,21 @@ public class CacheInfo {
       return clientTopology.getTopologyId();
    }
 
+   /**
+    * Returns whether this cache's server list comes from a topology sent by a server.
+    * <p>
+    * Until a server sends one, and again after the client resets the cache or switches clusters, the list holds the
+    * cluster's initial servers. That list says nothing about the servers the cache uses.
+    * </p>
+    *
+    * @return {@code true} if the servers were received from a server, {@code false} if they are the initial servers
+    */
+   public boolean hasServerTopology() {
+      int topologyId = getTopologyId();
+      return topologyId != HotRodConstants.DEFAULT_CACHE_TOPOLOGY
+            && topologyId!= HotRodConstants.SWITCH_CLUSTER_TOPOLOGY;
+   }
+
    public AtomicReference<ClientTopology> getClientTopologyRef() {
       return clientTopologyRef;
    }

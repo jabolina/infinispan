@@ -2,6 +2,7 @@ package org.infinispan.client.hotrod.impl.transport.netty;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -41,6 +42,7 @@ import org.infinispan.client.hotrod.impl.topology.CacheInfo;
 import org.infinispan.commons.time.DefaultTimeService;
 import org.infinispan.test.AbstractInfinispanTest;
 import org.infinispan.test.TestingUtil;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 import io.netty.channel.Channel;
@@ -52,6 +54,7 @@ public class PrimaryTopologyOrderingTest extends AbstractInfinispanTest {
    private static final InetSocketAddress A = InetSocketAddress.createUnresolved("localhost", 11222);
    private static final InetSocketAddress B = InetSocketAddress.createUnresolved("localhost", 11223);
    private static final InetSocketAddress[] SERVERS = {A, B};
+   private static final String OTHER_CACHE = "other";
 
    private OperationDispatcher dispatcher() {
       ConfigurationBuilder builder = new ConfigurationBuilder();
@@ -231,6 +234,246 @@ public class PrimaryTopologyOrderingTest extends AbstractInfinispanTest {
       assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
       push(dispatcher, oldB, 101, 789, B);
       assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+   }
+
+   /**
+    * A server excluded by a replacement's response can still be in another cache's topology. Its connection is
+    * shared by every cache, so it stays open, while the cache with the primary listener moves to the replacement's
+    * topology as if the server's socket had retired.
+    */
+   public void testResponseFromReplacementKeepsSocketUsedByAnotherCache() {
+      NearCacheTopologyListener listener = mock(NearCacheTopologyListener.class);
+      ReplacedWhileShared state = replaceFirstServerWhileOtherCacheUsesSecond(listener);
+      OperationDispatcher dispatcher = state.dispatcher();
+
+      assertThat(dispatcher.isCurrentChannel(state.oldB())).isTrue();
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+      assertThat(dispatcher.getTopologyId(OTHER_CACHE)).isEqualTo(321);
+      // The near cache learns that the second server no longer owns anything, so it stops relying on it
+      ArgumentCaptor<CacheInfo> notified = ArgumentCaptor.forClass(CacheInfo.class);
+      verify(listener, atLeastOnce()).afterTopologyUpdate(any(), notified.capture());
+      assertThat(notified.getValue().getServers()).containsExactly(A);
+   }
+
+   /**
+    * The socket kept open for another cache belongs to the generation the replacement connection superseded. Its
+    * sequences are not comparable with the replacement's, so it can't change the topology of the cache that moved
+    * to the replacement, through pushes or response headers.
+    */
+   public void testSocketKeptForAnotherCacheCannotOverrideReplacementTopology() {
+      ReplacedWhileShared state = replaceFirstServerWhileOtherCacheUsesSecond(mock(NearCacheTopologyListener.class));
+      OperationDispatcher dispatcher = state.dispatcher();
+
+      push(dispatcher, state.oldB(), 101, 789, B);
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+
+      dispatcher.updateTopology("", null, 790, SERVERS, new SocketAddress[][]{{B}}, (short) 3, state.oldB());
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+
+      // The socket still serves the other cache
+      dispatcher.updateTopology(OTHER_CACHE, null, 322, SERVERS, new SocketAddress[][]{{A}}, (short) 3, state.oldB());
+      assertThat(dispatcher.getTopologyId(OTHER_CACHE)).isEqualTo(322);
+   }
+
+   /**
+    * State where both caches use both servers through the original sockets: the default cache has a primary
+    * listener ordered by those sockets, and another cache has received a topology listing both servers.
+    *
+    * @param dispatcher the dispatcher holding that state
+    * @param oldA       the first server's original socket, which delivered the default cache's ordered snapshot
+    * @param oldB       the second server's original socket
+    */
+   private record SharedByBothCaches(OperationDispatcher dispatcher, Channel oldA, Channel oldB) { }
+
+   /**
+    * Builds the state described by {@link SharedByBothCaches}.
+    * <p>
+    * The other cache receives topology 321 listing both servers. The default cache registers the listener and then
+    * accepts a push from the first server with sequence 100 and topology 123, listing both servers.
+    * </p>
+    *
+    * @param listener the near cache topology listener to register for the default cache before any topology
+    * @return the resulting state
+    */
+   private SharedByBothCaches shareBothServersWithOtherCache(NearCacheTopologyListener listener) {
+      OperationDispatcher dispatcher = dispatcher();
+      Channel oldA = connect(dispatcher, A);
+      Channel oldB = connect(dispatcher, B);
+      dispatcher.addCacheTopologyInfoIfAbsent(OTHER_CACHE);
+      dispatcher.updateTopology(OTHER_CACHE, null, 321, SERVERS, new SocketAddress[][]{{B}}, (short) 3);
+      dispatcher.addTopologyListener("", listener);
+      push(dispatcher, oldA, 100, 123, A);
+      return new SharedByBothCaches(dispatcher, oldA, oldB);
+   }
+
+   /**
+    * State after the first server's replacement connection moved the default cache to a topology without the second
+    * server, while another cache's topology still lists the second server.
+    *
+    * @param dispatcher the dispatcher holding that state
+    * @param newA       the first server's replacement socket, the default cache's only primary listener socket
+    * @param oldB       the second server's socket, from before the replacement and still open
+    */
+   private record ReplacedWhileShared(OperationDispatcher dispatcher, Channel newA, Channel oldB) { }
+
+   /**
+    * Builds the state described by {@link ReplacedWhileShared}.
+    * <p>
+    * Starts from {@link SharedByBothCaches}. Then the first server's replacement connection answers a request and
+    * pushes a snapshot, both listing only the first server, with topology id 456 and a reset sequence.
+    * </p>
+    *
+    * @param listener the near cache topology listener to register for the default cache before any topology
+    * @return the resulting state
+    */
+   private ReplacedWhileShared replaceFirstServerWhileOtherCacheUsesSecond(NearCacheTopologyListener listener) {
+      SharedByBothCaches shared = shareBothServersWithOtherCache(listener);
+      OperationDispatcher dispatcher = shared.dispatcher();
+
+      // The first server restarted, and its replacement connection reports a topology without the second server
+      Channel newA = connect(dispatcher, A);
+      dispatcher.updateTopology("", null, 456, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3, newA);
+      dispatcher.updatePrimaryTopology("", newA, 0, -1, new BitSet(), 456, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3);
+      return new ReplacedWhileShared(dispatcher, newA, shared.oldB());
+   }
+
+   /**
+    * A response header from the socket kept open for another cache can't act as a replacement connection for the
+    * cache that moved away from its server. A delayed header listing only that server would otherwise retire the
+    * accepted replacement and put back the old, superseded topology.
+    */
+   public void testHeaderFromSocketKeptForAnotherCacheCannotRetireReplacement() {
+      ReplacedWhileShared state = replaceFirstServerWhileOtherCacheUsesSecond(mock(NearCacheTopologyListener.class));
+      OperationDispatcher dispatcher = state.dispatcher();
+      // Otherwise the header is dropped as coming from a closed socket, and the test proves nothing
+      assertThat(dispatcher.isCurrentChannel(state.oldB())).as("oldB is kept open for the other cache").isTrue();
+
+      dispatcher.updateTopology("", null, 789, new InetSocketAddress[]{B}, new SocketAddress[][]{{B}}, (short) 3,
+            state.oldB());
+
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+      assertThat(dispatcher.getCacheInfo("").getServers()).containsExactly(A);
+      assertThat(dispatcher.primaryTopologyReady("", state.newA()).toCompletableFuture()).isCompleted();
+   }
+
+   /**
+    * A push that drops a server from the cache's topology leaves that server's socket open while another cache still
+    * lists it. The socket no longer serves the cache's primary listener, so it can't hold back the snapshot of a
+    * later replacement connection, which would otherwise wait forever for the socket to retire.
+    */
+   public void testSocketKeptForAnotherCacheDoesNotHoldBackReplacementAfterShrink() {
+      SharedByBothCaches shared = shareBothServersWithOtherCache(mock(NearCacheTopologyListener.class));
+      OperationDispatcher dispatcher = shared.dispatcher();
+      Channel oldA = shared.oldA();
+      Channel oldB = shared.oldB();
+
+      // The default cache shrinks to the first server, while the other cache keeps the second server's socket
+      dispatcher.updatePrimaryTopology("", oldA, 101, 100, new BitSet(), 124, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3);
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(124);
+      assertThat(dispatcher.isCurrentChannel(oldB)).isTrue();
+
+      // The first server restarts, and its replacement connection pushes a snapshot with a reset sequence
+      Channel newA = connect(dispatcher, A);
+      dispatcher.retirePrimaryChannel(oldA);
+      dispatcher.updatePrimaryTopology("", newA, 0, -1, new BitSet(), 456, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3);
+
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+      assertThat(dispatcher.primaryTopologyReady("", newA).toCompletableFuture()).isCompleted();
+      assertThat(dispatcher.isCurrentChannel(oldB)).isTrue();
+   }
+
+   /**
+    * A replacement connection's snapshot waits while old sockets still order the cache's topology. If a push then
+    * drops the replacement's server, while another cache keeps its socket open, the waiting snapshot is stale: it
+    * must not be applied once the old sockets retire, as it would put back the server the push dropped.
+    */
+   public void testShrinkDiscardsQueuedSnapshotOfSocketKeptForAnotherCache() {
+      SharedByBothCaches shared = shareBothServersWithOtherCache(mock(NearCacheTopologyListener.class));
+      OperationDispatcher dispatcher = shared.dispatcher();
+      Channel oldA = shared.oldA();
+
+      // The second server restarts, and its replacement snapshot with a reset sequence waits behind the first server's socket
+      Channel newB = connect(dispatcher, B);
+      CompletableFuture<Channel> newBReady = dispatcher.primaryTopologyReady("", newB).toCompletableFuture();
+      dispatcher.updatePrimaryTopology("", newB, 0, -1, new BitSet(), 789, SERVERS,
+            new SocketAddress[][]{{B}}, (short) 3);
+      assertThat(dispatcher.getTopologyId("")).as("the replacement snapshot waits for the old sockets").isEqualTo(123);
+      assertThat(newBReady).isNotDone();
+
+      // The default cache shrinks to the first server, while the other cache keeps the second server's socket
+      dispatcher.updatePrimaryTopology("", oldA, 101, 100, new BitSet(), 124, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3);
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(124);
+      assertThat(dispatcher.isCurrentChannel(newB)).as("the other cache still lists the second server").isTrue();
+      assertThat(newBReady).as("the registration on the dropped server can be retried").isCompletedExceptionally();
+
+      // The first server's socket retires, the last one ordering the default cache
+      connect(dispatcher, A);
+      dispatcher.retirePrimaryChannel(oldA);
+
+      assertThat(dispatcher.getTopologyId("")).as("the stale snapshot must not be applied").isEqualTo(124);
+      assertThat(dispatcher.getCacheInfo("").getServers()).containsExactly(A);
+   }
+
+   /**
+    * A replacement connection's response can arrive before its listener snapshot. Its topology drops the second
+    * server, whose socket stays open for another cache, and no socket orders the cache's topology until the
+    * replacement's snapshot arrives. A delayed push from the second server's socket in that window must not restore
+    * the old ordering, which would hold back the replacement's snapshot.
+    */
+   public void testPushFromDetachedSocketCannotRestoreOrdering() {
+      SharedByBothCaches shared = shareBothServersWithOtherCache(mock(NearCacheTopologyListener.class));
+      OperationDispatcher dispatcher = shared.dispatcher();
+      Channel oldB = shared.oldB();
+
+      // The first server restarted, and its replacement connection answers a request before pushing its snapshot
+      Channel newA = connect(dispatcher, A);
+      CompletableFuture<Channel> newAReady = dispatcher.primaryTopologyReady("", newA).toCompletableFuture();
+      dispatcher.updateTopology("", null, 456, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3, newA);
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+      assertThat(dispatcher.isCurrentChannel(oldB)).as("the other cache still lists the second server").isTrue();
+
+      // A listener registered on the second server before the response pushes a delayed snapshot
+      CompletableFuture<Channel> oldBReady = dispatcher.primaryTopologyReady("", oldB).toCompletableFuture();
+      push(dispatcher, oldB, 101, 789, B);
+
+      assertThat(dispatcher.getTopologyId("")).as("the dropped server's push must not be applied").isEqualTo(456);
+      assertThat(oldBReady).as("the registration on the dropped server can be retried").isCompletedExceptionally();
+
+      // The replacement's snapshot, with a reset sequence, is applied at once
+      dispatcher.updatePrimaryTopology("", newA, 0, -1, new BitSet(), 457, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3);
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(457);
+      assertThat(newAReady).isCompletedWithValue(newA);
+   }
+
+   /**
+    * Between a replacement connection's response and its listener snapshot, no socket orders the cache's topology.
+    * A delayed response header from the second server's socket, kept open for another cache, must not list that
+    * server again: its later pushes would then pass as coming from a listed server and restore the old ordering.
+    */
+   public void testHeaderFromDetachedSocketCannotRelistServer() {
+      SharedByBothCaches shared = shareBothServersWithOtherCache(mock(NearCacheTopologyListener.class));
+      OperationDispatcher dispatcher = shared.dispatcher();
+      Channel oldB = shared.oldB();
+
+      // The first server restarted, and its replacement connection answers a request before pushing its snapshot
+      Channel newA = connect(dispatcher, A);
+      dispatcher.updateTopology("", null, 456, new InetSocketAddress[]{A},
+            new SocketAddress[][]{{A}}, (short) 3, newA);
+      assertThat(dispatcher.getTopologyId("")).isEqualTo(456);
+      assertThat(dispatcher.isCurrentChannel(oldB)).as("the other cache still lists the second server").isTrue();
+
+      // A delayed response on the second server's socket still lists both servers
+      dispatcher.updateTopology("", null, 790, SERVERS, new SocketAddress[][]{{B}}, (short) 3, oldB);
+
+      assertThat(dispatcher.getTopologyId("")).as("the dropped server's header must not be applied").isEqualTo(456);
+      assertThat(dispatcher.getCacheInfo("").getServers()).containsExactly(A);
    }
 
    /**

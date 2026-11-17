@@ -92,6 +92,14 @@ final class PrimaryTopologyTracker {
          return;
       }
       PrimaryTopology topology = primaryTopologies.computeIfAbsent(cacheName, ignored -> new PrimaryTopology());
+      // A cache only takes pushes from sockets to servers its topology lists, as listeners are registered on those servers only.
+      // A socket to any other server is one this cache has detached, possibly kept open for other caches.
+      // It is retired for this cache, so a registration waiting for its snapshot fails and can be retried, instead of the
+      // push restoring an ordering the cache's topology has moved away from.
+      if (!isListedServer(cacheName, channel)) {
+         retire(topology, channel);
+         return;
+      }
       resumePrimaryTopology(cacheName, topology);
       acceptPrimaryTopology(cacheName, topology,
             new PrimaryTopologyUpdate(channel, sequence, baseSequence, changedSegments, topologyHash, addresses,
@@ -143,6 +151,16 @@ final class PrimaryTopologyTracker {
             return;
          }
          topology.sequence = update.sequence;
+         // A socket to a server this cache no longer lists can stay open for other caches.
+         // It no longer serves this cache's primary listener, so it must not hold back the snapshot of a later replacement.
+         // Also, a snapshot it queued is stale, applying it later would put back the dropped server.
+         Set<Channel> tracked = new HashSet<>(topology.channels);
+         tracked.addAll(topology.pending.keySet());
+         for (Channel channel : tracked) {
+            if (!isListedServer(cacheName, channel)) {
+               retire(topology, channel);
+            }
+         }
          // Include all existing sockets, even listeners whose initial snapshot has not arrived yet.
          for (SocketAddress server : dispatcher.getCacheInfo(cacheName).getServers()) {
             OperationChannel connection = dispatcher.getHandlerForAddress(server);
@@ -162,14 +180,32 @@ final class PrimaryTopologyTracker {
    /** Removes ordering state for a closed socket and resumes snapshots waiting for the old sockets to retire. */
    synchronized void retirePrimaryChannel(Channel channel) {
       new HashMap<>(primaryTopologies).forEach((cacheName, topology) -> {
-         topology.channels.remove(channel);
-         topology.pending.remove(channel);
-         CompletableFuture<Channel> ready = topology.ready.remove(channel);
-         if (ready != null) {
-            ready.completeExceptionally(new IllegalStateException("Primary listener channel retired"));
-         }
+         retire(topology, channel);
          resumePrimaryTopology(cacheName, topology);
       });
+   }
+
+   /**
+    * Stops one cache's primary topology from using a socket, without closing the socket.
+    *
+    * <p>
+    * Afterwards the socket is no longer one of the cache's listener sockets, so it no longer holds back a snapshot
+    * from a replacement connection, and a snapshot it delivered that is still waiting to be applied is discarded.
+    * A listener registration waiting for this socket's snapshot completes exceptionally with an
+    * {@link IllegalStateException}, so it can be registered again. The primary topologies of other caches are not
+    * affected.
+    * </p>
+    *
+    * @param topology the primary topology of the cache that stops using the socket
+    * @param channel  the socket to stop using; a socket the topology does not use is ignored
+    */
+   private static void retire(PrimaryTopology topology, Channel channel) {
+      topology.channels.remove(channel);
+      topology.pending.remove(channel);
+      CompletableFuture<Channel> ready = topology.ready.remove(channel);
+      if (ready != null) {
+         ready.completeExceptionally(new IllegalStateException("Primary listener channel retired"));
+      }
    }
 
    private void resumePrimaryTopology(String cacheName, PrimaryTopology topology) {
@@ -200,11 +236,42 @@ final class PrimaryTopologyTracker {
       dispatcher.applyTopology(cacheName, operation, responseTopologyId, addresses, segmentOwners, hashFunctionVersion, null);
    }
 
+   /**
+    * Decides whether a response header may change a cache's topology, after retiring the sockets that a replacement
+    * connection's header excludes.
+    *
+    * <p>
+    * A cache without a primary listener, or whose listener has no ordered snapshot yet, accepts every header. Once
+    * the listener's pushes order the cache's topology, headers carry no sequence that could be compared, so they are
+    * not applied. A header from a socket that is not one of the cache's listener sockets, to a server the cache's
+    * topology lists, comes from a replacement connection. The servers its topology leaves out stop serving the cache:
+    * their sockets are closed when no other cache's received topology lists them, and are otherwise only retired for
+    * this cache. A replacement's snapshot that was waiting for those sockets is then applied. A header from a socket to
+    * a server the cache's topology does not list is ignored, also before the listener has an ordered snapshot, as that
+    * socket only stays open for other caches.
+    * </p>
+    *
+    * @param cacheName the cache the header belongs to
+    * @param source    the current socket that received the response
+    * @param addresses the servers listed by the header's topology
+    * @return {@code true} if the header's topology may be applied to the cache, {@code false} if the cache's topology
+    *         is ordered by its primary listener or the source is not a server the cache lists
+    */
    private boolean acceptsResponse(String cacheName, Channel source, InetSocketAddress[] addresses) {
       PrimaryTopology topology = primaryTopologies.get(cacheName);
       if (topology != null) {
+         // A socket to a server this cache doesn't list is one it stopped using, possibly open for other caches.
+         // Its header can't change this cache's topology, whether or not pushes order it yet.
+         // Listing the server again would let that socket's later pushes restore an ordering the cache moved away from.
+         if (!isListedServer(cacheName, source))
+            return false;
+
          if (topology.sequence >= 0 && !topology.channels.contains(source)) {
-            dispatcher.closeExcludedChannels(cacheName, addresses);
+            // A header from a socket to a listed server that is not one of the listener sockets comes from a replacement connection.
+            // A socket another cache still needs stays open, but this cache treats it as retired
+            for (Channel retained : dispatcher.closeExcludedChannels(cacheName, addresses)) {
+               retire(topology, retained);
+            }
          }
          resumePrimaryTopology(cacheName, topology);
          // Headers have no sequence. Established listener sockets provide ordered pushes instead.
@@ -213,5 +280,19 @@ final class PrimaryTopologyTracker {
          }
       }
       return true;
+   }
+
+   /**
+    * Returns whether a socket connects to one of the servers in a cache's current topology.
+    *
+    * @param cacheName the cache whose topology is checked
+    * @param channel   the socket to check
+    * @return {@code true} if the server the socket connects to is listed by the cache's current topology,
+    *         {@code false} otherwise, including for a socket whose server address is not an internet address, as
+    *         topologies only list internet addresses
+    */
+   private boolean isListedServer(String cacheName, Channel channel) {
+      return ChannelRecord.of(channel) instanceof InetSocketAddress server
+            && dispatcher.getCacheInfo(cacheName).getServers().contains(server);
    }
 }

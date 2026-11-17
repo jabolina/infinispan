@@ -552,15 +552,38 @@ public class OperationDispatcher {
       primaryTopologyTracker.retirePrimaryChannel(channel);
    }
 
+   /**
+    * Closes the connections to the servers of a cache's topology that a replacement connection no longer lists, as
+    * far as no other cache needs them.
+    * <p>
+    * Connections are shared by every cache. A server that another cache's topology still lists keeps its connection,
+    * and the connection is returned so the caller can stop using it for {@code cacheName} only.
+    * </p>
+    *
+    * @param cacheName the cache whose topology the replacement connection reported
+    * @param addresses the servers the replacement connection reported
+    * @return the channels to excluded servers that stay open because another cache still uses them
+    */
    // Called with the primary topology tracker monitor held; retirement also requires the topology write lock.
-   void closeExcludedChannels(String cacheName, InetSocketAddress[] addresses) {
+   List<Channel> closeExcludedChannels(String cacheName, InetSocketAddress[] addresses) {
       Set<SocketAddress> members = new HashSet<>(Arrays.asList(addresses));
+      // This cache's own topology still lists the excluded servers, so only the other caches count
+      Set<InetSocketAddress> usedByOtherCaches = topologyInfo.getServersInUse(cacheName);
       // Collected first as getCacheInfo acquires the read lock, which can't be taken while holding the write lock
       List<SocketAddress> excluded = new ArrayList<>();
-      for (SocketAddress server : getCacheInfo(cacheName).getServers()) {
-         if (!members.contains(server)) {
+      List<Channel> retained = new ArrayList<>();
+      for (InetSocketAddress server : getCacheInfo(cacheName).getServers()) {
+         if (members.contains(server))
+            continue;
+
+         if (!usedByOtherCaches.contains(server)) {
             excluded.add(server);
+            continue;
          }
+
+         OperationChannel connection = channelHandler.getChannelForAddress(server);
+         if (connection != null && connection.getChannel() != null)
+            retained.add(connection.getChannel());
       }
       if (!excluded.isEmpty()) {
          // gracefulCloseChannel can only be invoked while holding the write lock
@@ -571,6 +594,7 @@ public class OperationDispatcher {
             lock.unlockWrite(stamp);
          }
       }
+      return retained;
    }
 
    /** Processes response headers only from a current socket, retiring sockets excluded by a replacement server. */
@@ -680,7 +704,7 @@ public class OperationDispatcher {
       List<InetSocketAddress> oldServers = oldCacheInfo.getServers();
       Set<SocketAddress> addedServers = new HashSet<>(newServers);
       oldServers.forEach(addedServers::remove);
-      Set<SocketAddress> removedServers = new HashSet<>(oldServers);
+      Set<InetSocketAddress> removedServers = new HashSet<>(oldServers);
       newServers.forEach(removedServers::remove);
       if (log.isTraceEnabled()) {
          String cacheNameString = newCacheInfo.getCacheName();
@@ -700,8 +724,14 @@ public class OperationDispatcher {
       // Then update the server list for new operations
       topologyInfo.updateCacheInfo(cacheName, oldCacheInfo, newCacheInfo);
 
-      // And finally remove the failed servers
-      for (SocketAddress server : removedServers) {
+      // And finally close the channels of servers that no cache routes to anymore.
+      // Channels are shared by every cache, and a server can be missing from one cache's topology and not from another.
+      // A server that left one topology but is still utilised by another cache keeps its channel until no longer needed.
+      Set<InetSocketAddress> serversInUse = topologyInfo.getServersInUse(cacheName);
+      for (InetSocketAddress server : removedServers) {
+         if (serversInUse.contains(server))
+            continue;
+
          HOTROD.removingServer(server);
          connectionFailedServers.remove(server);
          gracefulCloseChannel(server);

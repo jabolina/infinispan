@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
@@ -72,6 +74,24 @@ public final class TopologyInfo {
 
    public Collection<InetSocketAddress> getAllServers() {
       return caches.values().stream().flatMap(ct -> ct.getServers().stream()).collect(Collectors.toSet());
+   }
+
+   /**
+    * Returns the servers that at least one other cache routes to, according to the topologies servers sent.
+    * <p>
+    * Used when one cache stops using some servers while its own topology still lists them.
+    * </p>
+    *
+    * @param cacheName the cache to leave out
+    * @return the servers listed by any topology received from a server for a cache other than {@code cacheName}
+    */
+   public Set<InetSocketAddress> getServersInUse(String cacheName) {
+      String excluded = nameOrDefault(cacheName);
+      return caches.entrySet().stream()
+            .filter(e -> !Objects.equals(e.getKey(), excluded))
+            .filter(e -> e.getValue().hasServerTopology())
+            .flatMap(e -> e.getValue().getServers().stream())
+            .collect(Collectors.toSet());
    }
 
    public SegmentConsistentHash createConsistentHash(short hashFunctionVersion, SocketAddress[][] segmentOwners) {
